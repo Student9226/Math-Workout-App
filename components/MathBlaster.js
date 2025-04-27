@@ -1,0 +1,272 @@
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Animated } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { Audio } from 'expo-av';
+
+const { width, height } = Dimensions.get('window');
+
+const MathBlaster = () => {
+  const navigation = useNavigation();
+  const [asteroids, setAsteroids] = useState([]);
+  const [score, setScore] = useState(0);
+  const [lives, setLives] = useState(2);
+  const [userInput, setUserInput] = useState('');
+  const [stars, setStars] = useState([]);
+  const [gameOver, setGameOver] = useState(false);
+  const [showLaser, setShowLaser] = useState(false);
+  const [laserTarget, setLaserTarget] = useState(null);
+  const [sound, setSound] = useState(null);
+
+  // Load sound
+  useEffect(() => {
+    const loadSound = async () => {
+      try {
+        const { sound } = await Audio.Sound.createAsync(
+          require('./laser.mp3') // Local file in the project directory
+        );
+        setSound(sound);
+      } catch (error) {
+        console.error('Error loading sound:', error);
+      }
+    };
+    loadSound();
+
+    return () => {
+      if (sound) {
+        sound.unloadAsync();
+      }
+    };
+  }, []);
+
+  // Initialize and continuously spawn stars
+  useEffect(() => {
+    const spawnStars = () => {
+      const newStar = {
+        id: Date.now(),
+        x: Math.random() * width,
+        y: new Animated.Value(-10),
+      };
+
+      setStars(prev => [...prev, newStar]);
+
+      Animated.timing(newStar.y, {
+        toValue: height + 10,
+        duration: 5000 + Math.random() * 5000,
+        useNativeDriver: true,
+      }).start(() => {
+        setStars(prev => prev.filter(star => star.id !== newStar.id));
+      });
+    };
+
+    if (!gameOver) {
+      spawnStars();
+      const interval = setInterval(spawnStars, 500);
+      return () => clearInterval(interval);
+    }
+  }, [gameOver]);
+
+  // Generate asteroids
+  useEffect(() => {
+    if (gameOver) return;
+    const interval = setInterval(() => {
+      const operations = ['+', '-', '*', '/'];
+      const operation = operations[Math.floor(Math.random() * 4)];
+      let num1, num2, answer;
+
+      if (operation === '*') {
+        num1 = Math.floor(Math.random() * 10);
+        num2 = Math.floor(Math.random() * 10);
+        answer = num1 * num2;
+      } else if (operation === '/') {
+        num2 = Math.floor(Math.random() * 9) + 1;
+        answer = Math.floor(Math.random() * 10);
+        num1 = num2 * answer;
+      } else if (operation === '-') {
+        num2 = Math.floor(Math.random() * 10);
+        num1 = Math.floor(Math.random() * (10 - num2 + 1)) + num2;
+        answer = num1 - num2;
+      } else {
+        num1 = Math.floor(Math.random() * 10);
+        num2 = Math.floor(Math.random() * 10);
+        answer = num1 + num2;
+      }
+
+      const position = new Animated.Value(-50);
+      const newAsteroid = {
+        id: Date.now(),
+        num1,
+        num2,
+        operation,
+        answer,
+        position,
+        x: Math.random() * (width - 60),
+        destroyed: false,
+      };
+
+      setAsteroids(prev => [...prev, newAsteroid]);
+
+      Animated.timing(position, {
+        toValue: height - 100,
+        duration: 10000,
+        useNativeDriver: true,
+      }).start(() => {
+        setAsteroids(prev => {
+          const asteroid = prev.find(a => a.id === newAsteroid.id);
+          if (asteroid && !asteroid.destroyed) {
+            setLives(prevLives => {
+              if (prevLives <= 1) {
+                setGameOver(true);
+                setTimeout(() => navigation.navigate('Home'), 2000);
+                return 0;
+              }
+              return prevLives - 1;
+            });
+          }
+          return prev.filter(a => a.id !== newAsteroid.id);
+        });
+      });
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [gameOver]);
+
+  const handleNumberPress = (number) => {
+    if (gameOver) return;
+    const newInput = userInput + number;
+    setUserInput(newInput);
+    const expectedLength = String(asteroids[0]?.answer || 0).length || 1;
+    if (newInput.length >= expectedLength) {
+      handleSubmit(newInput);
+    }
+  };
+
+  const handleClear = () => {
+    setUserInput('');
+  };
+
+  const handleSubmit = async (input) => {
+    const userAnswer = parseInt(input, 10);
+    const targetAsteroid = asteroids[0];
+    if (targetAsteroid && userAnswer === targetAsteroid.answer) {
+      setScore(score + 1);
+      setShowLaser(true);
+      setLaserTarget({ x: targetAsteroid.x + 30, y: targetAsteroid.position });
+      if (sound) {
+        try {
+          await sound.replayAsync();
+        } catch (error) {
+          console.error('Error playing sound:', error);
+        }
+      }
+      setTimeout(() => {
+        setShowLaser(false);
+        setLaserTarget(null);
+        setAsteroids(prev => {
+          const updated = [...prev];
+          if (updated[0]) updated[0].destroyed = true;
+          return updated.slice(1);
+        });
+        Animated.timing(targetAsteroid.position, {
+          toValue: height,
+          duration: 0,
+          useNativeDriver: true,
+        }).stop();
+      }, 500);
+      setUserInput('');
+    } else {
+      setUserInput('');
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      {stars.map((star, index) => (
+        <Animated.View
+          key={index}
+          style={[styles.star, { left: star.x, transform: [{ translateY: star.y }] }]}
+        />
+      ))}
+      <Text style={styles.score}>Score: {score}</Text>
+      <Text style={styles.lives}>Lives: {lives}</Text>
+      {gameOver ? (
+        <Text style={styles.gameOver}>Game Over! Score: {score}</Text>
+      ) : (
+        <>
+          {asteroids.map(asteroid => (
+            <Animated.View
+              key={asteroid.id}
+              style={[styles.asteroid, { left: asteroid.x, transform: [{ translateY: asteroid.position }] }]}
+            >
+              <Text style={styles.asteroidText}>
+                {asteroid.num1} {asteroid.operation} {asteroid.num2}
+              </Text>
+            </Animated.View>
+          ))}
+          {showLaser && laserTarget && (
+            <View style={styles.laserContainer}>
+              <View
+                style={[
+                  styles.laser,
+                  {
+                    height: height - 150 - laserTarget.y._value,
+                    transform: [{ translateX: laserTarget.x - width / 2 }],
+                  },
+                ]}
+              />
+            </View>
+          )}
+          <View style={styles.buttonGrid}>
+            <View style={styles.buttonRow}>
+              <View style={styles.inputContainer}>
+                <Text style={styles.input}>{userInput || ' '}</Text>
+              </View>
+              {['0', '1', '2', '3', '4'].map(item => (
+                <TouchableOpacity
+                  key={item}
+                  style={styles.numberButton}
+                  onPress={() => handleNumberPress(item)}
+                >
+                  <Text style={styles.buttonText}>{item}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <View style={styles.buttonRow}>
+              <TouchableOpacity style={styles.numberButton} onPress={handleClear}>
+                <Text style={styles.buttonText}>C</Text>
+              </TouchableOpacity>
+              {['5', '6', '7', '8', '9'].map(item => (
+                <TouchableOpacity
+                  key={item}
+                  style={styles.numberButton}
+                  onPress={() => handleNumberPress(item)}
+                >
+                  <Text style={styles.buttonText}>{item}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </>
+      )}
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#000', position: 'relative' },
+  star: { position: 'absolute', width: 2, height: 2, backgroundColor: '#fff', borderRadius: 1 },
+  score: { position: 'absolute', top: 20, left: 20, fontSize: 24, color: '#fff' },
+  lives: { position: 'absolute', top: 20, right: 20, fontSize: 24, color: '#fff' },
+  asteroid: { position: 'absolute', width: 60, height: 60, backgroundColor: '#aaa', borderRadius: 30, justifyContent: 'center', alignItems: 'center' },
+  asteroidText: { fontSize: 18, color: '#000', fontWeight: 'bold' },
+  gameOver: { fontSize: 36, color: '#fff', textAlign: 'center', marginTop: height / 2 - 50 },
+  laserContainer: { position: 'absolute', bottom: 150, left: width / 2, width: 2, alignItems: 'center' },
+  laser: { width: 2, backgroundColor: 'red' },
+  buttonGrid: { position: 'absolute', bottom: 20, width: '100%', alignItems: 'center' },
+  buttonRow: { flexDirection: 'row', justifyContent: 'center', marginBottom: 10 },
+  inputContainer: { width: width / 6, height: width / 6, justifyContent: 'center', alignItems: 'center', marginHorizontal: 5 },
+  input: { fontSize: 24, color: '#fff', borderWidth: 1, borderColor: '#fff', padding: 5, width: '100%', textAlign: 'center', backgroundColor: '#333', borderRadius: 5 },
+  numberButton: { width: width / 6, height: width / 6, backgroundColor: '#333', borderRadius: 5, justifyContent: 'center', alignItems: 'center', marginHorizontal: 5 },
+  buttonText: { color: '#fff', fontSize: 24 },
+});
+
+export default MathBlaster;
