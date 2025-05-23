@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const STORAGE_KEY = '@math_game_results';
+const UNLOCKED_DIFFICULTY_KEY = 'unlockedDifficulty';
 
 // Save game result
 export const saveGameResult = async (result) => {
@@ -30,5 +31,23 @@ export const clearGameResults = async () => {
     await AsyncStorage.removeItem(STORAGE_KEY);
   } catch (error) {
     console.error('Error clearing game results:', error);
+  }
+};
+
+export const saveUnlockedDifficulty = async (difficulty) => {
+  try {
+    await AsyncStorage.setItem(UNLOCKED_DIFFICULTY_KEY, difficulty);
+  } catch (e) {
+    console.error('Error saving unlocked difficulty:', e);
+  }
+};
+
+export const getUnlockedDifficulty = async () => {
+  try {
+    const difficulty = await AsyncStorage.getItem(UNLOCKED_DIFFICULTY_KEY);
+    return difficulty;
+  } catch (e) {
+    console.error('Error getting unlocked difficulty:', e);
+    return null;
   }
 };

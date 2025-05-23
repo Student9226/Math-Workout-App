@@ -45,7 +45,7 @@ const Home = () => { // Destructure navigation from props or use useNavigation
         <Text style={styles.graphButtonText}>View Progress Graph</Text>
       </TouchableOpacity>
       <TouchableOpacity onPress={() => navigation.navigate('Menu')}>
-        <Text style={{ marginTop: 20, color: 'blue', fontSize: 12 }}>Tap here to access the menu</Text>
+        <Text style={{ marginTop: 20, color: 'blue', fontSize: Dimensions.get('window').width * 0.03 }}>Tap here to access the menu</Text>
       </TouchableOpacity>
     </View>
   );

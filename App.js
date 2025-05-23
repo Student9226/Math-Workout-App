@@ -1,7 +1,6 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { WallpaperProvider } from './components/WallpaperContext';
 import Home from './components/Home';
 import AdditionSubtraction from './components/AdditionSubtraction';
 import MultiplicationDivision from './components/MultiplicationDivision';
@@ -11,12 +10,15 @@ import MathBlaster from './components/MathBlaster';
 import Menu from './components/Menu';
 import ResultsScreen from './components/ResultsScreen';
 import GraphScreen from './components/GraphScreen'; 
+import { DifficultyProvider } from './components/DifficultyContext'; 
+import { WallpaperProvider } from './components/WallpaperContext';
 
 const Stack = createStackNavigator();
 
 const App = () => {
   return (
     <WallpaperProvider>
+      <DifficultyProvider>
     <NavigationContainer>
       <Stack.Navigator initialRouteName="Home" screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Home" component={Home} />
@@ -30,6 +32,7 @@ const App = () => {
         <Stack.Screen name="Graph" component={GraphScreen} /> 
       </Stack.Navigator>
     </NavigationContainer>
+    </DifficultyProvider>
     </WallpaperProvider>
   );
 };
