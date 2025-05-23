@@ -9,6 +9,9 @@ import MathItOut from './components/MathItOut';
 import MemoryManiac from './components/MemoryManiac';
 import MathBlaster from './components/MathBlaster';
 import Menu from './components/Menu';
+import ResultsScreen from './components/ResultsScreen';
+import GraphScreen from './components/GraphScreen'; 
+
 const Stack = createStackNavigator();
 
 const App = () => {
@@ -23,6 +26,8 @@ const App = () => {
         <Stack.Screen name="MemoryManiac" component={MemoryManiac} />
         <Stack.Screen name="MathBlaster" component={MathBlaster} />
         <Stack.Screen name="Menu" component={Menu} />
+        <Stack.Screen name="Results" component={ResultsScreen} />
+        <Stack.Screen name="Graph" component={GraphScreen} /> 
       </Stack.Navigator>
     </NavigationContainer>
     </WallpaperProvider>

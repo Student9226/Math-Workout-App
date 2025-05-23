@@ -22,14 +22,14 @@ const MemoryManiac = () => {
       setCurrentValue(startValue);
       setOperationText(`Start with ${startValue}`);
       setStep(1);
-    } else if (step <= 20) {
+    } else if (step <= 15) {
       let ticks = 0;
       const timer = setInterval(() => {
         ticks++;
         setProgress(1 - (ticks / 25));
         if (ticks >= 25) {
           clearInterval(timer);
-          if (step < 20) {
+          if (step < 15) {
             const operations = ['add', 'subtract', 'multiply', 'divide'];
             const operation = operations[Math.floor(Math.random() * 4)];
             let num, newValue;
@@ -37,33 +37,29 @@ const MemoryManiac = () => {
             if (operation === 'add') {
               num = Math.floor(Math.random() * 10) + 1; // 1-10
               newValue = currentValue + num;
-              // Cap the result to avoid overly large numbers
-              if (newValue > 100) {
-                num = 100 - currentValue; // Adjust num to cap at 100
-                newValue = 100;
+              if (newValue > 10) {
+                num = 10 - currentValue; 
+                newValue = 10;
               }
               setOperationText(`Add ${num}`);
             } else if (operation === 'subtract') {
-              // Ensure subtraction doesn't result in a negative number
               num = Math.floor(Math.random() * currentValue) + 1; // 1 to currentValue
               newValue = currentValue - num;
               setOperationText(`Subtract ${num}`);
             } else if (operation === 'multiply') {
               num = Math.floor(Math.random() * 10) + 1; // 1-10
               newValue = currentValue * num;
-              // Cap the result to avoid overly large numbers
-              if (newValue > 100) {
-                num = Math.floor(100 / currentValue); // Adjust num to cap at 100
+              if (newValue > 10) {
+                num = Math.floor(10 / currentValue); 
                 newValue = currentValue * num;
               }
               setOperationText(`Multiply by ${num}`);
             } else {
-              // Division: Ensure currentValue is divisible by num
               const possibleDivisors = [];
               for (let i = 1; i <= currentValue; i++) {
                 if (currentValue % i === 0) possibleDivisors.push(i);
               }
-              num = possibleDivisors[Math.floor(Math.random() * possibleDivisors.length)] || 1; // Fallback to 1
+              num = possibleDivisors[Math.floor(Math.random() * possibleDivisors.length)] || 1; 
               newValue = currentValue / num; // Guaranteed to be a whole number
               setOperationText(`Divide by ${num}`);
             }
@@ -77,7 +73,7 @@ const MemoryManiac = () => {
             setTimeout(() => setShowInput(true), 0);
           }
         }
-      }, 100);
+      }, 10);
       return () => clearInterval(timer);
     }
   }, [step, currentValue]);

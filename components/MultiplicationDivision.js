@@ -2,16 +2,21 @@ import React, { useState, useEffect, useContext } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { WallpaperContext } from './WallpaperContext';
+import { saveGameResult } from './storage'; // Import the saveGameResult function
 
 const MultiplicationDivision = () => {
   const navigation = useNavigation();
   const [question, setQuestion] = useState({ num1: 0, num2: 0, operation: '*', answer: 0 });
   const [userInput, setUserInput] = useState('');
   const [isIncorrect, setIsIncorrect] = useState(false);
-  const [correctCount, setCorrectCount] = useState(0); 
+  const [correctCount, setCorrectCount] = useState(0);
+  const [errorCount, setErrorCount] = useState(0); // State to track errors
+  const [startTime, setStartTime] = useState(null); // State to track start time
   const { selectedWallpaper } = useContext(WallpaperContext);
+
   useEffect(() => {
     generateQuestion();
+    setStartTime(Date.now()); // Set start time when the component mounts
   }, []);
 
   const generateQuestion = () => {
@@ -53,12 +58,29 @@ const MultiplicationDivision = () => {
       const newCorrectCount = correctCount + 1;
       setCorrectCount(newCorrectCount);
       if (newCorrectCount >= 20) {
+        const endTime = Date.now();
+        const timeTaken = (endTime - startTime) / 1000; // Time taken in seconds
+        const score = Math.round(timeTaken * (errorCount + 1)); // Calculate score
+        const gameResult = { // Create an object to store the result
+          gameType: 'Multiplication/Division', // Identify the game type
+          timeTaken: timeTaken,
+          errors: errorCount,
+          correctAnswers: 20,
+          score: score,
+          timestamp: Date.now(), // Add a timestamp
+        };
+        saveGameResult(gameResult); // Save the result to local storage
+
         setCorrectCount(0); // Reset counter
-        navigation.navigate('Home'); // Return to home screen
+        setErrorCount(0); // Reset error count
+        setStartTime(null); // Reset start time
+
+        navigation.navigate('Results', { timeTaken, errors: errorCount, correctAnswers: 20, score }); // Navigate to ResultsScreen
       } else {
         setTimeout(generateQuestion, 0);
       }
     } else {
+      setErrorCount(errorCount + 1); // Increment error count
       setIsIncorrect(true);
       setTimeout(() => setIsIncorrect(false), 1000);
       setUserInput('');
@@ -71,7 +93,7 @@ const MultiplicationDivision = () => {
   return (
     <View style={[styles.container, selectedWallpaper]}>
       <Text style={[styles.question, isIncorrect && styles.incorrect]}>
-        {question.num1} {question.operation} {question.num2}
+        {question.num1} {question.operation === '*' ? 'x' : question.operation} {question.num2}
       </Text>
       <Text style={styles.input}>{userInput || ' '}</Text>
       <Text style={styles.counter}>Correct: {correctCount}/20</Text> {/* Display counter */}

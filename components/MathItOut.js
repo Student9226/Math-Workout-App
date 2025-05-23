@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { WallpaperContext } from './WallpaperContext';
+import { saveGameResult } from './storage'; // Import the saveGameResult function
 
 const MathItOut = () => {
   const navigation = useNavigation();
@@ -9,10 +10,13 @@ const MathItOut = () => {
   const [userInput, setUserInput] = useState('');
   const [isIncorrect, setIsIncorrect] = useState(false);
   const [correctCount, setCorrectCount] = useState(0);
+  const [errorCount, setErrorCount] = useState(0); // State to track errors
+  const [startTime, setStartTime] = useState(null); // State to track start time
   const { selectedWallpaper } = useContext(WallpaperContext);
 
   useEffect(() => {
     generateQuestion();
+    setStartTime(Date.now()); // Set start time when the component mounts
   }, []);
 
   const generateQuestion = () => {
@@ -25,9 +29,9 @@ const MathItOut = () => {
       num2 = Math.floor(Math.random() * 10);
       answer = num1 * num2;
     } else if (operation === '/') {
-      num2 = Math.floor(Math.random() * 9) + 1;
-      answer = Math.floor(Math.random() * 10);
-      num1 = num2 * answer;
+      num2 = Math.floor(Math.random() * 9) + 1; // 1-9 (avoid division by 0)
+      answer = Math.floor(Math.random() * 10); // Answer between 0-9
+      num1 = num2 * answer; // num1 = num2 * answer to ensure whole number division
     } else if (operation === '-') {
       num2 = Math.floor(Math.random() * 10);
       num1 = Math.floor(Math.random() * (10 - num2 + 1)) + num2; // Ensure num1 >= num2
@@ -45,7 +49,7 @@ const MathItOut = () => {
   const handleNumberPress = (number) => {
     const newInput = userInput + number;
     setUserInput(newInput);
-    const expectedLength = question.answer < 10 ? 1 : 2;
+    const expectedLength = String(question.answer).length;
     if (newInput.length === expectedLength) handleSubmit(newInput);
   };
 
@@ -57,13 +61,32 @@ const MathItOut = () => {
   const handleSubmit = (input) => {
     const userAnswer = parseInt(input, 10);
     if (userAnswer === question.answer) {
-      const newCount = correctCount + 1;
-      setCorrectCount(newCount);
-      if (newCount >= 20) {
-        setCorrectCount(0);
-        navigation.navigate('Home');
-      } else setTimeout(generateQuestion, 0);
+      const newCorrectCount = correctCount + 1;
+      setCorrectCount(newCorrectCount);
+      if (newCorrectCount >= 20) {
+        const endTime = Date.now();
+        const timeTaken = (endTime - startTime) / 1000; // Time taken in seconds
+        const score = Math.round(timeTaken * (errorCount + 1)); // Calculate score
+        const gameResult = { // Create an object to store the result
+          gameType: 'Math It Out', // Identify the game type
+          timeTaken: timeTaken,
+          errors: errorCount,
+          correctAnswers: 20,
+          score: score,
+          timestamp: Date.now(), // Add a timestamp
+        };
+        saveGameResult(gameResult); // Save the result to local storage
+
+        setCorrectCount(0); // Reset counter
+        setErrorCount(0); // Reset error count
+        setStartTime(null); // Reset start time
+
+        navigation.navigate('Results', { timeTaken, errors: errorCount, correctAnswers: 20, score }); // Navigate to ResultsScreen
+      } else {
+        setTimeout(generateQuestion, 0);
+      }
     } else {
+      setErrorCount(errorCount + 1); // Increment error count
       setIsIncorrect(true);
       setTimeout(() => setIsIncorrect(false), 1000);
       setUserInput('');
@@ -76,23 +99,24 @@ const MathItOut = () => {
   return (
     <View style={[styles.container, selectedWallpaper]}>
       <Text style={[styles.question, isIncorrect && styles.incorrect]}>
-        {question.num1} {question.operation} {question.num2}
+        {question.num1} {question.operation === '*' ? 'x' : question.operation} {question.num2}
       </Text>
       <Text style={styles.input}>{userInput || ' '}</Text>
       <Text style={styles.counter}>Correct: {correctCount}/20</Text>
+      <Text style={styles.counter}>Errors: {errorCount}</Text> {/* Display error count */}
       <View style={styles.buttonGrid}>
-        <View style={styles.buttonRow}>{['1', '2', '3'].map(num => (
-          <TouchableOpacity key={num} style={styles.numberButton} onPress={() => handleNumberPress(num)}>
+        <View style={styles.buttonRow}>{[1, 2, 3].map(num => (
+          <TouchableOpacity key={num} style={styles.numberButton} onPress={() => handleNumberPress(num.toString())}>
             <Text style={styles.buttonText}>{num}</Text>
           </TouchableOpacity>
         ))}</View>
-        <View style={styles.buttonRow}>{['4', '5', '6'].map(num => (
-          <TouchableOpacity key={num} style={styles.numberButton} onPress={() => handleNumberPress(num)}>
+        <View style={styles.buttonRow}>{[4, 5, 6].map(num => (
+          <TouchableOpacity key={num} style={styles.numberButton} onPress={() => handleNumberPress(num.toString())}>
             <Text style={styles.buttonText}>{num}</Text>
           </TouchableOpacity>
         ))}</View>
-        <View style={styles.buttonRow}>{['7', '8', '9'].map(num => (
-          <TouchableOpacity key={num} style={styles.numberButton} onPress={() => handleNumberPress(num)}>
+        <View style={styles.buttonRow}>{[7, 8, 9].map(num => (
+          <TouchableOpacity key={num} style={styles.numberButton} onPress={() => handleNumberPress(num.toString())}>
             <Text style={styles.buttonText}>{num}</Text>
           </TouchableOpacity>
         ))}</View>
@@ -101,9 +125,7 @@ const MathItOut = () => {
           <TouchableOpacity style={styles.numberButton} onPress={() => handleNumberPress('0')}>
             <Text style={styles.buttonText}>0</Text>
           </TouchableOpacity>
-          <View style={styles.buttonRow}>
-            <View style={{ width: buttonSize, height: buttonSize }} />
-          </View>
+          <View style={{ width: buttonSize, height: buttonSize }} />
         </View>
         <TouchableOpacity style={[styles.clearButton, { width: buttonSize * 3 + 20 }]} onPress={handleClear}>
           <Text style={styles.buttonText}>Clear</Text>
@@ -126,6 +148,7 @@ const styles = StyleSheet.create({
   buttonRow: { flexDirection: 'row', justifyContent: 'center', marginBottom: 10 },
   numberButton: { width: Dimensions.get('window').width * 0.18, height: Dimensions.get('window').width * 0.18, backgroundColor: '#007AFF', borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginHorizontal: 5 },
   clearButton: { height: Dimensions.get('window').width * 0.18, backgroundColor: '#FF5733', borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginTop: 5 },
+  submitButton: { height: Dimensions.get('window').width * 0.18, backgroundColor: '#28A745', borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginTop: 5 },
   backButton: { marginTop: 20, paddingVertical: 10, paddingHorizontal: 20, backgroundColor: '#007AFF', borderRadius: 10 },
   buttonText: { color: '#fff', fontSize: Dimensions.get('window').width * 0.06 },
 });

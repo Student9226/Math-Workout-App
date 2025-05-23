@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Animated } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { Audio } from 'expo-av';
+import { Audio } from 'expo-audio';
 
 const { width, height } = Dimensions.get('window');
 

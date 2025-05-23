@@ -3,16 +3,21 @@ import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-nati
 import { useNavigation } from '@react-navigation/native';
 import { WallpaperContext } from './WallpaperContext';
 import { Platform } from 'react-native';
+import { saveGameResult } from './storage'; // Import the saveGameResult function
 
 const AdditionSubtraction = () => {
   const navigation = useNavigation();
   const [question, setQuestion] = useState({ num1: 0, num2: 0, operation: '+', answer: 0 });
   const [userInput, setUserInput] = useState('');
   const [isIncorrect, setIsIncorrect] = useState(false);
-  const [correctCount, setCorrectCount] = useState(0); // Counter for correct answers
+  const [correctCount, setCorrectCount] = useState(0);
+  const [errorCount, setErrorCount] = useState(0); // State to track errors
+  const [startTime, setStartTime] = useState(null); // State to track start time
   const { selectedWallpaper } = useContext(WallpaperContext);
+
   useEffect(() => {
     generateQuestion();
+    setStartTime(Date.now()); // Set start time when the component mounts
   }, []);
 
   const generateQuestion = () => {
@@ -33,7 +38,7 @@ const AdditionSubtraction = () => {
     const expectedLength = question.answer < 10 ? 1 : 2;
     if (newInput.length === expectedLength) {
       handleSubmit(newInput);
-    }    
+    }
   };
 
   const handleClear = () => {
@@ -47,12 +52,29 @@ const AdditionSubtraction = () => {
       const newCorrectCount = correctCount + 1;
       setCorrectCount(newCorrectCount);
       if (newCorrectCount >= 20) {
+        const endTime = Date.now();
+        const timeTaken = (endTime - startTime) / 1000; // Time taken in seconds
+        const score = Math.round(timeTaken * (errorCount + 1)); // Calculate score
+        const gameResult = { // Create an object to store the result
+          gameType: 'Addition/Subtraction', // Identify the game type
+          timeTaken: timeTaken,
+          errors: errorCount,
+          correctAnswers: 20,
+          score: score,
+          timestamp: Date.now(), // Add a timestamp
+        };
+        saveGameResult(gameResult); // Save the result to local storage
+
         setCorrectCount(0); // Reset counter
-        navigation.navigate('Home'); // Return to home screen
+        setErrorCount(0); // Reset error count
+        setStartTime(null); // Reset start time
+
+        navigation.navigate('Results', { timeTaken, errors: errorCount, correctAnswers: 20, score }); // Pass score to ResultsScreen
       } else {
         setTimeout(generateQuestion, 0);
       }
     } else {
+      setErrorCount(errorCount + 1); // Increment error count
       setIsIncorrect(true);
       setTimeout(() => setIsIncorrect(false), 1000);
       setUserInput('');
@@ -68,7 +90,7 @@ const AdditionSubtraction = () => {
         {question.num1} {question.operation} {question.num2}
       </Text>
       <Text style={styles.input}>{userInput || ' '}</Text>
-      <Text style={styles.counter}>Correct: {correctCount}/20</Text> {/* Display counter */}
+      <Text style={styles.counter}>Correct: {correctCount}/20</Text>
       <View style={styles.buttonGrid}>
         {/* Row 1: 1, 2, 3 */}
         <View style={styles.buttonRow}>
