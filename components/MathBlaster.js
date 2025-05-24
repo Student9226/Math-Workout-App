@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Animated } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { Audio } from 'expo-audio';
 
 const { width, height } = Dimensions.get('window');
 
@@ -15,30 +14,8 @@ const MathBlaster = () => {
   const [gameOver, setGameOver] = useState(false);
   const [showLaser, setShowLaser] = useState(false);
   const [laserTarget, setLaserTarget] = useState(null);
-  const [sound, setSound] = useState(null);
+  const [usedXPositions, setUsedXPositions] = useState([]);
 
-  // Load sound
-  useEffect(() => {
-    const loadSound = async () => {
-      try {
-        const { sound } = await Audio.Sound.createAsync(
-          require('./laser.mp3') // Local file in the project directory
-        );
-        setSound(sound);
-      } catch (error) {
-        console.error('Error loading sound:', error);
-      }
-    };
-    loadSound();
-
-    return () => {
-      if (sound) {
-        sound.unloadAsync();
-      }
-    };
-  }, []);
-
-  // Initialize and continuously spawn stars
   useEffect(() => {
     const spawnStars = () => {
       const newStar = {
@@ -65,7 +42,6 @@ const MathBlaster = () => {
     }
   }, [gameOver]);
 
-  // Generate asteroids
   useEffect(() => {
     if (gameOver) return;
     const interval = setInterval(() => {
@@ -91,6 +67,13 @@ const MathBlaster = () => {
         answer = num1 + num2;
       }
 
+      let x;
+      let attempts = 0;
+      do {
+        x = Math.random() * (width - 60);
+        attempts++;
+      } while (usedXPositions.some(pos => Math.abs(pos - x) < 70) && attempts < 10);
+
       const position = new Animated.Value(-50);
       const newAsteroid = {
         id: Date.now(),
@@ -99,35 +82,52 @@ const MathBlaster = () => {
         operation,
         answer,
         position,
-        x: Math.random() * (width - 60),
+        x,
         destroyed: false,
       };
 
       setAsteroids(prev => [...prev, newAsteroid]);
+      setUsedXPositions(prev => [...prev, x]);
 
       Animated.timing(position, {
         toValue: height - 100,
         duration: 10000,
         useNativeDriver: true,
-      }).start(() => {
-        setAsteroids(prev => {
-          const asteroid = prev.find(a => a.id === newAsteroid.id);
-          if (asteroid && !asteroid.destroyed) {
-            setLives(prevLives => {
-              if (prevLives <= 1) {
-                setGameOver(true);
-                setTimeout(() => navigation.navigate('Home'), 2000);
-                return 0;
-              }
-              return prevLives - 1;
-            });
-          }
-          return prev.filter(a => a.id !== newAsteroid.id);
-        });
-      });
+      }).start();
     }, 3000);
 
     return () => clearInterval(interval);
+  }, [gameOver]);
+
+  useEffect(() => {
+    const checkAsteroidPosition = () => {
+      setAsteroids(prev => {
+        const updated = prev.map(asteroid => ({
+          ...asteroid,
+          reachedBottom: asteroid.position._value >= height - 100,
+        }));
+
+        const reachedBottomAsteroids = updated.filter(a => a.reachedBottom && !a.destroyed);
+        if (reachedBottomAsteroids.length > 0) {
+          setLives(prevLives => {
+            if (prevLives <= 1) {
+              setGameOver(true);
+              return 0;
+            }
+            return prevLives - 1;
+          });
+          const asteroidXs = reachedBottomAsteroids.map(a => a.x);
+          setUsedXPositions(prev => prev.filter(pos => !asteroidXs.includes(pos)));
+          return updated.filter(a => !a.reachedBottom);
+        }
+        return updated;
+      });
+    };
+
+    if (!gameOver) {
+      const interval = setInterval(checkAsteroidPosition, 100);
+      return () => clearInterval(interval);
+    }
   }, [gameOver]);
 
   const handleNumberPress = (number) => {
@@ -144,20 +144,13 @@ const MathBlaster = () => {
     setUserInput('');
   };
 
-  const handleSubmit = async (input) => {
+  const handleSubmit = (input) => {
     const userAnswer = parseInt(input, 10);
     const targetAsteroid = asteroids[0];
     if (targetAsteroid && userAnswer === targetAsteroid.answer) {
       setScore(score + 1);
       setShowLaser(true);
       setLaserTarget({ x: targetAsteroid.x + 30, y: targetAsteroid.position });
-      if (sound) {
-        try {
-          await sound.replayAsync();
-        } catch (error) {
-          console.error('Error playing sound:', error);
-        }
-      }
       setTimeout(() => {
         setShowLaser(false);
         setLaserTarget(null);
@@ -166,6 +159,7 @@ const MathBlaster = () => {
           if (updated[0]) updated[0].destroyed = true;
           return updated.slice(1);
         });
+        setUsedXPositions(prev => prev.filter(pos => pos !== targetAsteroid.x));
         Animated.timing(targetAsteroid.position, {
           toValue: height,
           duration: 0,
@@ -189,7 +183,12 @@ const MathBlaster = () => {
       <Text style={styles.score}>Score: {score}</Text>
       <Text style={styles.lives}>Lives: {lives}</Text>
       {gameOver ? (
-        <Text style={styles.gameOver}>Game Over! Score: {score}</Text>
+        <View style={styles.gameOverContainer}>
+          <Text style={styles.gameOver}>Game Over! Score: {score}</Text>
+          <TouchableOpacity style={styles.backButton} onPress={() => navigation.navigate('Home')}>
+            <Text style={styles.backButtonText}>Back to Home</Text>
+          </TouchableOpacity>
+        </View>
       ) : (
         <>
           {asteroids.map(asteroid => (
@@ -254,18 +253,52 @@ const MathBlaster = () => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000', position: 'relative' },
   star: { position: 'absolute', width: 2, height: 2, backgroundColor: '#fff', borderRadius: 1 },
-  score: { position: 'absolute', top: 20, left: 20, fontSize: 24, color: '#fff' },
-  lives: { position: 'absolute', top: 20, right: 20, fontSize: 24, color: '#fff' },
+  score: { position: 'absolute', top: 20, left: 20, fontSize: 24, color: '#fff', padding: 10 },
+  lives: { position: 'absolute', top: 20, right: 20, fontSize: 24, color: '#fff', padding: 10 },
   asteroid: { position: 'absolute', width: 60, height: 60, backgroundColor: '#aaa', borderRadius: 30, justifyContent: 'center', alignItems: 'center' },
   asteroidText: { fontSize: 18, color: '#000', fontWeight: 'bold' },
-  gameOver: { fontSize: 36, color: '#fff', textAlign: 'center', marginTop: height / 2 - 50 },
+  gameOverContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  gameOver: { fontSize: 36, color: '#fff', textAlign: 'center', marginBottom: 20 },
+  backButton: { paddingVertical: 10, paddingHorizontal: 20, backgroundColor: '#007AFF', borderRadius: 10 },
+  backButtonText: { color: '#fff', fontSize: 18 },
   laserContainer: { position: 'absolute', bottom: 150, left: width / 2, width: 2, alignItems: 'center' },
   laser: { width: 2, backgroundColor: 'red' },
-  buttonGrid: { position: 'absolute', bottom: 20, width: '100%', alignItems: 'center' },
-  buttonRow: { flexDirection: 'row', justifyContent: 'center', marginBottom: 10 },
-  inputContainer: { width: width / 6, height: width / 6, justifyContent: 'center', alignItems: 'center', marginHorizontal: 5 },
-  input: { fontSize: 24, color: '#fff', borderWidth: 1, borderColor: '#fff', padding: 5, width: '100%', textAlign: 'center', backgroundColor: '#333', borderRadius: 5 },
-  numberButton: { width: width / 6, height: width / 6, backgroundColor: '#333', borderRadius: 5, justifyContent: 'center', alignItems: 'center', marginHorizontal: 5 },
+  buttonGrid: { position: 'absolute', bottom: 20, width: width, alignItems: 'center' },
+  buttonRow: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    marginBottom: 8, 
+    width: Dimensions.get('window').width * 1 
+  },
+  inputContainer: { 
+    width: width / 6, 
+    height: width / 6, 
+    backgroundColor: '#333', 
+    borderRadius: 5, 
+    justifyContent: 'center', 
+    alignItems: 'center' ,
+    marginHorizontal: 1  
+  },
+  input: { 
+    fontSize: 24, 
+    color: '#fff', 
+    textAlign: 'center', 
+    width: '100%', 
+    height: '100%', 
+    lineHeight: width / 6, 
+    borderWidth: 1, 
+    borderColor: '#fff', 
+    borderRadius: 5 
+  },
+  numberButton: { 
+    width: width / 6, 
+    height: width / 6, 
+    backgroundColor: '#333', 
+    borderRadius: 5, 
+    justifyContent: 'center', 
+    alignItems: 'center',
+    marginHorizontal: 1
+  },
   buttonText: { color: '#fff', fontSize: 24 },
 });
 

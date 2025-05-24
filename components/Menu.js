@@ -2,14 +2,14 @@ import React, { useContext } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { WallpaperContext } from './WallpaperContext';
-import { DifficultyContext } from './DifficultyContext'; // Import DifficultyContext
+import { DifficultyContext } from './DifficultyContext';
 
 const { width } = Dimensions.get('window');
 
 const Menu = () => {
   const navigation = useNavigation();
   const { wallpaper, setWallpaper, selectedWallpaper, wallpapers } = useContext(WallpaperContext);
-  const { unlockedDifficulty, updateUnlockedDifficulty } = useContext(DifficultyContext); // Use DifficultyContext
+  const { unlockedDifficulty, updateUnlockedDifficulty } = useContext(DifficultyContext);
 
   const difficultyLevels = [
     { name: 'Easy', key: 'Easy' },
@@ -23,7 +23,25 @@ const Menu = () => {
     } else if (unlockedDifficulty === 'Medium') {
       return difficultyKey === 'Hard';
     }
-    return false; // Hard is unlocked
+    return false;
+  };
+
+  // Define button background colors matching wallpaper styles
+  const getButtonBackgroundColor = (wpName) => {
+    switch (wpName) {
+      case 'Default': return '#FFFFFF'; 
+      case 'Aliceblue': return '#F0F8FF';
+      case 'Orange': return '#ff8c00';
+      case 'Light green': return '#90EE90';
+      case 'Purple': return '#8B8FF6';
+      case 'Ocean': return '#0284C7';
+      default: return '#f5f5f5';
+    }
+  };
+
+  // Define button text colors
+  const getButtonTextColor = (wpName) => {
+    return ['Default', 'Aliceblue', 'Light green'].includes(wpName) ? '#000000' : '#FFFFFF';
   };
 
   return (
@@ -35,10 +53,16 @@ const Menu = () => {
           {wallpapers.map(wp => (
             <TouchableOpacity
               key={wp.name}
-              style={[styles.optionButton, wallpaper === wp.name && styles.selectedOption]}
+              style={[
+                styles.optionButton,
+                { backgroundColor: getButtonBackgroundColor(wp.name) },
+                wallpaper === wp.name && styles.selectedOption
+              ]}
               onPress={() => setWallpaper(wp.name)}
             >
-              <Text style={styles.optionText}>{wp.name}</Text>
+              <Text style={[styles.optionText, { color: getButtonTextColor(wp.name) }]}>
+                {wp.name}
+              </Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -52,7 +76,7 @@ const Menu = () => {
               key={level.key}
               style={[
                 styles.optionButton,
-                { backgroundColor: isDifficultyLocked(level.key) ? '#ccc' : '#007AFF' }, // Grey out locked difficulties
+                { backgroundColor: isDifficultyLocked(level.key) ? '#ccc' : '#007AFF' },
                 unlockedDifficulty === level.key && styles.selectedOption,
               ]}
               onPress={() => {
@@ -60,9 +84,9 @@ const Menu = () => {
                   updateUnlockedDifficulty(level.key);
                 }
               }}
-              disabled={isDifficultyLocked(level.key)} // Disable locked buttons
+              disabled={isDifficultyLocked(level.key)}
             >
-              <Text style={styles.optionText}>{level.name}</Text>
+              <Text style={[styles.optionText, {color:'white'}]}>{level.name}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -82,8 +106,8 @@ const styles = StyleSheet.create({
   label: { fontSize: width * 0.05, fontWeight: 'bold', marginBottom: 10, color: '#333' },
   optionGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', width: '100%' },
   optionButton: { paddingVertical: 10, paddingHorizontal: 15, borderRadius: 5, margin: 5 },
-  selectedOption: { backgroundColor: '#28A745' },
-  optionText: { color: '#fff', fontSize: width * 0.04 },
+  selectedOption: { borderWidth: 2, borderColor: '#28A745' },
+  optionText: { fontSize: width * 0.04 },
   toggleButton: { paddingVertical: 10, paddingHorizontal: 20, backgroundColor: '#007AFF', borderRadius: 5 },
   toggleText: { color: '#fff', fontSize: width * 0.04 },
   backButton: { marginTop: 20, paddingVertical: 10, paddingHorizontal: 20, backgroundColor: '#007AFF', borderRadius: 10 },

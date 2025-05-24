@@ -2,9 +2,11 @@ import React, { useState, useEffect, useContext } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { ProgressBar } from 'react-native-paper';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { WallpaperContext } from './WallpaperContext';
+import { saveGameResult } from './storage';
 
-const MemoryManiac = () => {
+const MemoryManiac = ({ route }) => {
   const navigation = useNavigation();
   const [step, setStep] = useState(0);
   const [currentValue, setCurrentValue] = useState(0);
@@ -14,69 +16,89 @@ const MemoryManiac = () => {
   const [showInput, setShowInput] = useState(false);
   const [showIncorrect, setShowIncorrect] = useState(false);
   const [progress, setProgress] = useState(1);
+  const [startTime, setStartTime] = useState(null);
   const { selectedWallpaper } = useContext(WallpaperContext);
+  const difficulty = route?.params?.difficulty || 'Low'; // Default to Low
 
-  useEffect(() => {
-    if (step === 0) {
-      const startValue = Math.floor(Math.random() * 10) + 1; 
-      setCurrentValue(startValue);
-      setOperationText(`Start with ${startValue}`);
-      setStep(1);
-    } else if (step <= 15) {
-      let ticks = 0;
-      const timer = setInterval(() => {
-        ticks++;
-        setProgress(1 - (ticks / 25));
-        if (ticks >= 25) {
-          clearInterval(timer);
-          if (step < 15) {
-            const operations = ['add', 'subtract', 'multiply', 'divide'];
-            const operation = operations[Math.floor(Math.random() * 4)];
-            let num, newValue;
-
-            if (operation === 'add') {
-              num = Math.floor(Math.random() * 10) + 1; // 1-10
-              newValue = currentValue + num;
-              if (newValue > 10) {
-                num = 10 - currentValue; 
-                newValue = 10;
-              }
-              setOperationText(`Add ${num}`);
-            } else if (operation === 'subtract') {
-              num = Math.floor(Math.random() * currentValue) + 1; // 1 to currentValue
-              newValue = currentValue - num;
-              setOperationText(`Subtract ${num}`);
-            } else if (operation === 'multiply') {
-              num = Math.floor(Math.random() * 10) + 1; // 1-10
-              newValue = currentValue * num;
-              if (newValue > 10) {
-                num = Math.floor(10 / currentValue); 
-                newValue = currentValue * num;
-              }
-              setOperationText(`Multiply by ${num}`);
-            } else {
-              const possibleDivisors = [];
-              for (let i = 1; i <= currentValue; i++) {
-                if (currentValue % i === 0) possibleDivisors.push(i);
-              }
-              num = possibleDivisors[Math.floor(Math.random() * possibleDivisors.length)] || 1; 
-              newValue = currentValue / num; // Guaranteed to be a whole number
-              setOperationText(`Divide by ${num}`);
-            }
-
-            setCurrentValue(newValue);
-            setStep(step + 1);
-            setProgress(1);
-          } else {
-            setOperationText('');
-            setProgress(0);
-            setTimeout(() => setShowInput(true), 0);
-          }
-        }
-      }, 10);
-      return () => clearInterval(timer);
+  const getDifficultySettings = () => {
+    switch (difficulty) {
+      case 'Low': return { time: 300, maxNum: 5, maxResult: 15 }; // 5s, 1-5, max 15
+      case 'Moderate': return { time: 250, maxNum: 7, maxResult: 20 }; // 4s, 1-7, max 20
+      case 'Hard': return { time: 200, maxNum: 10, maxResult: 25 }; // 3s, 1-10, max 25
+      default: return { time: 300, maxNum: 10, maxResult: 15 };
     }
-  }, [step, currentValue]);
+  };
+
+  const { time: timerTicks, maxNum, maxResult } = getDifficultySettings();
+
+useEffect(() => {
+  if (step === 0) {
+    const startValue = Math.floor(Math.random() * maxNum) + 1;
+    setCurrentValue(startValue);
+    setOperationText(`Start with ${startValue}`);
+    setStep(1);
+    setStartTime(Date.now());
+    setProgress(1);
+  } else if (step <= 10) {
+    let ticks = 0;
+    const timer = setInterval(() => {
+      ticks++;
+      const newProgress = 1 - (ticks / timerTicks);
+      setProgress(newProgress > 0 ? newProgress : 0);
+      if (ticks >= timerTicks) {
+        clearInterval(timer);
+        if (step < 10) {
+          const operations = ['add', 'subtract', 'multiply', 'divide'];
+          const operation = operations[Math.floor(Math.random() * 4)];
+          let num, newValue;
+
+          if (operation === 'add') {
+            num = Math.floor(Math.random() * maxNum) + 1;
+            newValue = currentValue + num;
+            if (newValue > maxResult) {
+              num = maxResult - currentValue;
+              newValue = maxResult;
+            }
+            setOperationText(`Add ${num}`);
+          } else if (operation === 'subtract') {
+            num = Math.floor(Math.random() * Math.min(currentValue, maxNum)) + 1;
+            newValue = currentValue - num;
+            if (newValue < 0) {
+              num = currentValue;
+              newValue = 0;
+            }
+            setOperationText(`Subtract ${num}`);
+          } else if (operation === 'multiply') {
+            num = Math.floor(Math.random() * Math.min(maxNum, 4)) + 1;
+            newValue = currentValue * num;
+            if (newValue > maxResult) {
+              num = Math.floor(maxResult / currentValue);
+              newValue = currentValue * num;
+            }
+            setOperationText(`Multiply by ${num}`);
+          } else {
+            const possibleDivisors = [];
+            for (let i = 1; i <= currentValue && i <= maxNum; i++) {
+              if (currentValue % i === 0) possibleDivisors.push(i);
+            }
+            num = possibleDivisors[Math.floor(Math.random() * possibleDivisors.length)] || 1;
+            newValue = currentValue / num;
+            setOperationText(`Divide by ${num}`);
+          }
+
+          setCurrentValue(newValue);
+          setStep(step + 1);
+          setProgress(1);
+        } else {
+          setOperationText('');
+          setProgress(0);
+          setShowInput(true);
+        }
+      }
+    }, 10);
+    return () => clearInterval(timer);
+  }
+}, [step, currentValue, timerTicks, maxNum, maxResult]);
 
   const handleNumberPress = (number) => {
     setUserInput(userInput + number);
@@ -87,10 +109,32 @@ const MemoryManiac = () => {
     setShowIncorrect(false);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const userAnswer = parseInt(userInput, 10);
     if (userAnswer === currentValue) {
-      navigation.navigate('Home');
+      const endTime = Date.now();
+      const timeTaken = Number((endTime - startTime) / 1000).toFixed(2);
+      const score = Math.round(timeTaken * (incorrectCount + 1));
+      const gameResult = {
+        gameType: `Memory Maniac (${difficulty})`,
+        timeTaken,
+        errors: incorrectCount,
+        correctAnswers: 1,
+        score,
+        timestamp: Date.now(),
+      };
+      saveGameResult(gameResult);
+  
+      try {
+        const savedCompletions = await AsyncStorage.getItem('memoryManiacCompletions');
+        const completions = savedCompletions ? JSON.parse(savedCompletions) : { Low: 0, Moderate: 0, Hard: 0 };
+        completions[difficulty] = (completions[difficulty] || 0) + 1;
+        await AsyncStorage.setItem('memoryManiacCompletions', JSON.stringify(completions));
+      } catch (error) {
+        console.error('Error saving completions:', error);
+      }
+  
+      navigation.navigate('Results', { timeTaken, errors: incorrectCount, correctAnswers: 1, score, gameType: `Memory Maniac (${difficulty})` });
     } else {
       setShowIncorrect(true);
       setIncorrectCount(incorrectCount + 1);
@@ -98,6 +142,7 @@ const MemoryManiac = () => {
       if (incorrectCount + 1 >= 3) {
         setOperationText(`Correct Answer: ${currentValue}`);
         setShowInput(false);
+        setTimeout(() => navigation.navigate('Home'), 2000);
       }
     }
   };
@@ -107,28 +152,33 @@ const MemoryManiac = () => {
 
   return (
     <View style={[styles.container, selectedWallpaper]}>
-      <Text style={styles.operation}>{operationText}</Text>
-      {step > 0 && step <= 20 && progress > 0 && <ProgressBar progress={progress} color="#007AFF" style={styles.progress} />}
-      {showInput ? (
+      <Text style={styles.operation}>{operationText} {currentValue}</Text>
+      {step > 0 && step <= 10 && <ProgressBar progress={progress} color="#007AFF" style={styles.progress} />}      {showInput ? (
         <>
           <Text style={styles.input}>{userInput || ' '}</Text>
           {showIncorrect && <Text style={styles.incorrect}>Incorrect</Text>}
           <View style={styles.buttonGrid}>
-            <View style={styles.buttonRow}>{['1', '2', '3'].map(num => (
-              <TouchableOpacity key={num} style={styles.numberButton} onPress={() => handleNumberPress(num)}>
-                <Text style={styles.buttonText}>{num}</Text>
-              </TouchableOpacity>
-            ))}</View>
-            <View style={styles.buttonRow}>{['4', '5', '6'].map(num => (
-              <TouchableOpacity key={num} style={styles.numberButton} onPress={() => handleNumberPress(num)}>
-                <Text style={styles.buttonText}>{num}</Text>
-              </TouchableOpacity>
-            ))}</View>
-            <View style={styles.buttonRow}>{['7', '8', '9'].map(num => (
-              <TouchableOpacity key={num} style={styles.numberButton} onPress={() => handleNumberPress(num)}>
-                <Text style={styles.buttonText}>{num}</Text>
-              </TouchableOpacity>
-            ))}</View>
+            <View style={styles.buttonRow}>
+              {['1', '2', '3'].map(num => (
+                <TouchableOpacity key={num} style={styles.numberButton} onPress={() => handleNumberPress(num)}>
+                  <Text style={styles.buttonText}>{num}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <View style={styles.buttonRow}>
+              {['4', '5', '6'].map(num => (
+                <TouchableOpacity key={num} style={styles.numberButton} onPress={() => handleNumberPress(num)}>
+                  <Text style={styles.buttonText}>{num}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <View style={styles.buttonRow}>
+              {['7', '8', '9'].map(num => (
+                <TouchableOpacity key={num} style={styles.numberButton} onPress={() => handleNumberPress(num)}>
+                  <Text style={styles.buttonText}>{num}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
             <View style={styles.buttonRow}>
               <View style={{ width: buttonSize, height: buttonSize }} />
               <TouchableOpacity style={styles.numberButton} onPress={() => handleNumberPress('0')}>

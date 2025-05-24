@@ -1,89 +1,38 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import React, { useContext } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { WallpaperContext } from './WallpaperContext';
 
 const ResultsScreen = ({ route }) => {
   const navigation = useNavigation();
-  const { timeTaken, errors, correctAnswers } = route.params; // Get data from navigation params
+  const { timeTaken, errors, correctAnswers, score, gameType } = route.params;
+  const { selectedWallpaper } = useContext(WallpaperContext);
 
-  // Calculate the score
-  const score = Math.round(timeTaken * (errors + 1)); // Score calculation: time * (errors + 1)
+  const isMemoryManiac = gameType?.includes('Memory Maniac');
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, selectedWallpaper]}>
       <Text style={styles.title}>Results</Text>
-
-      <View style={styles.resultItem}>
-        <Text style={styles.label}>Time Taken:</Text>
-        <Text style={styles.value}>{timeTaken.toFixed(2)} seconds</Text> {/* Display time with 2 decimal places */}
-      </View>
-
-      <View style={styles.resultItem}>
-        <Text style={styles.label}>Errors:</Text>
-        <Text style={styles.value}>{errors}</Text>
-      </View>
-
-      <View style={styles.resultItem}>
-        <Text style={styles.label}>Correct Answers:</Text>
-        <Text style={styles.value}>{correctAnswers}</Text>
-      </View>
-
-      <View style={styles.resultItem}>
-        <Text style={styles.label}>Score:</Text>
-        <Text style={styles.value}>{score}</Text>
-      </View>
-
-      <TouchableOpacity style={styles.homeButton} onPress={() => navigation.navigate('Home')}>
-        <Text style={styles.buttonText}>Go to Home Screen</Text>
+      <Text style={styles.resultText}>Time Taken: {Number(timeTaken).toFixed(2)} seconds</Text>
+      <Text style={styles.resultText}>Errors: {errors}</Text>
+      {!isMemoryManiac && <Text style={styles.resultText}>Correct Answers: {correctAnswers}</Text>}
+      <Text style={styles.resultText}>Score: {Number(score).toFixed(2)}</Text>
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => navigation.navigate('Home')}
+      >
+        <Text style={styles.buttonText}>Back to Home</Text>
       </TouchableOpacity>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-    padding: 20,
-  },
-  title: {
-    fontSize: Dimensions.get('window').width * 0.08,
-    fontWeight: 'bold',
-    marginBottom: 30,
-    color: '#333',
-  },
-  resultItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '80%',
-    marginBottom: 15,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#ccc',
-  },
-  label: {
-    fontSize: Dimensions.get('window').width * 0.05,
-    fontWeight: 'bold',
-    color: '#555',
-  },
-  value: {
-    fontSize: Dimensions.get('window').width * 0.05,
-    color: '#007AFF',
-  },
-  homeButton: {
-    marginTop: 40,
-    paddingVertical: 15,
-    paddingHorizontal: 30,
-    backgroundColor: '#007AFF',
-    borderRadius: 10,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: Dimensions.get('window').width * 0.05,
-    fontWeight: 'bold',
-  },
+  container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+  title: { fontSize: Dimensions.get('window').width * 0.08, fontWeight: 'bold', marginBottom: 20, color: '#333' },
+  resultText: { fontSize: Dimensions.get('window').width * 0.05, marginBottom: 10, color: '#333' },
+  button: { marginTop: 20, paddingVertical: 10, paddingHorizontal: 20, backgroundColor: '#007AFF', borderRadius: 10 },
+  buttonText: { color: '#fff', fontSize: Dimensions.get('window').width * 0.06 },
 });
 
 export default ResultsScreen;

@@ -32,7 +32,8 @@ const GraphScreen = () => {
     labels: filteredGameResults.map((_, index) => `Game ${index + 1}`), // Labels for each game
     datasets: [
       {
-        data: filteredGameResults.map(result => result.score), // Scores as data points
+        data: filteredGameResults.map(result => result.score),
+        strokeWidth:3 // Scores as data points
       },
     ],
   };
@@ -40,18 +41,18 @@ const GraphScreen = () => {
   // Configuration for the chart
   const chartConfig = {
     backgroundColor: '#e26a00',
-    backgroundGradientFrom: '#fb8c00',
+    backgroundGradientFrom: '#FB4700',
     backgroundGradientTo: '#ffa726',
     decimalPlaces: 0, // optional, defaults to 2dp
-    color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
-    labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+    color: () => `rgba(255, 255, 255, 1)`,
+    labelColor: () => `rgba(255, 255, 255, 1)`,
     style: {
       borderRadius: 16,
     },
     propsForDots: {
       r: '6',
       strokeWidth: '2',
-      stroke: '#ffa726',
+      stroke: '#fff',
     },
   };
 
