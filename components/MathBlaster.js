@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Animated } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-
+import { useAudioPlayer } from 'expo-audio'; // Updated import
 const { width, height } = Dimensions.get('window');
 
 const MathBlaster = () => {
@@ -15,6 +15,24 @@ const MathBlaster = () => {
   const [showLaser, setShowLaser] = useState(false);
   const [laserTarget, setLaserTarget] = useState(null);
   const [usedXPositions, setUsedXPositions] = useState([]);
+  const [sound, setSound] = useState(null);
+  const player = useAudioPlayer(require('./laser.mp3'));
+  useEffect(() => {
+    // Preload the audio to ensure it's ready to play
+    const loadAudio = async () => {
+      try {
+        await player.play(); // Load the audio file
+      } catch (error) {
+        console.error('Error loading sound:', error);
+      }
+    };
+    loadAudio();
+
+    // Cleanup: Unload the audio when component unmounts
+    return () => {
+      player.unload().catch(error => console.error('Error unloading sound:', error));
+    };
+  }, [player]);
 
   useEffect(() => {
     const spawnStars = () => {
@@ -130,27 +148,34 @@ const MathBlaster = () => {
     }
   }, [gameOver]);
 
+  // Handle number button presses
   const handleNumberPress = (number) => {
     if (gameOver) return;
     const newInput = userInput + number;
     setUserInput(newInput);
     const expectedLength = String(asteroids[0]?.answer || 0).length || 1;
-    if (newInput.length >= expectedLength) {
+    if (newInput.length === expectedLength) { // Changed from >= to === for exact length match
       handleSubmit(newInput);
     }
   };
 
+  // Clear the input
   const handleClear = () => {
     setUserInput('');
   };
 
-  const handleSubmit = (input) => {
+  const handleSubmit = async (input) => {
     const userAnswer = parseInt(input, 10);
     const targetAsteroid = asteroids[0];
     if (targetAsteroid && userAnswer === targetAsteroid.answer) {
       setScore(score + 1);
       setShowLaser(true);
       setLaserTarget({ x: targetAsteroid.x + 30, y: targetAsteroid.position });
+      try {
+        await player.play(); // Play the sound using useAudioPlayer
+      } catch (error) {
+        console.error('Error playing sound:', error);
+      }
       setTimeout(() => {
         setShowLaser(false);
         setLaserTarget(null);
@@ -264,38 +289,38 @@ const styles = StyleSheet.create({
   laserContainer: { position: 'absolute', bottom: 150, left: width / 2, width: 2, alignItems: 'center' },
   laser: { width: 2, backgroundColor: 'red' },
   buttonGrid: { position: 'absolute', bottom: 20, width: width, alignItems: 'center' },
-  buttonRow: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    marginBottom: 8, 
-    width: Dimensions.get('window').width * 1 
+  buttonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+    width: Dimensions.get('window').width * 1
   },
-  inputContainer: { 
-    width: width / 6, 
-    height: width / 6, 
-    backgroundColor: '#333', 
-    borderRadius: 5, 
-    justifyContent: 'center', 
-    alignItems: 'center' ,
-    marginHorizontal: 1  
+  inputContainer: {
+    width: width / 6,
+    height: width / 6,
+    backgroundColor: '#333',
+    borderRadius: 5,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 1
   },
-  input: { 
-    fontSize: 24, 
-    color: '#fff', 
-    textAlign: 'center', 
-    width: '100%', 
-    height: '100%', 
-    lineHeight: width / 6, 
-    borderWidth: 1, 
-    borderColor: '#fff', 
-    borderRadius: 5 
+  input: {
+    fontSize: 24,
+    color: '#fff',
+    textAlign: 'center',
+    width: '100%',
+    height: '100%',
+    lineHeight: width / 6,
+    borderWidth: 1,
+    borderColor: '#fff',
+    borderRadius: 5
   },
-  numberButton: { 
-    width: width / 6, 
-    height: width / 6, 
-    backgroundColor: '#333', 
-    borderRadius: 5, 
-    justifyContent: 'center', 
+  numberButton: {
+    width: width / 6,
+    height: width / 6,
+    backgroundColor: '#333',
+    borderRadius: 5,
+    justifyContent: 'center',
     alignItems: 'center',
     marginHorizontal: 1
   },

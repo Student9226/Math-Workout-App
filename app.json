@@ -29,6 +29,10 @@
       "eas": {
         "projectId": "1b617b22-087d-4a7c-bbce-3404f7eab8c0"
       }
-    }
+    },
+    "sdkVersion": "53.0.0",
+    "plugins": [
+      "expo-audio"
+    ]
   }
 }

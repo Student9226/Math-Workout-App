@@ -5,6 +5,46 @@ import { ProgressBar } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { WallpaperContext } from './WallpaperContext';
 import { saveGameResult } from './storage';
+import Animated, { Easing } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
+
+const SpinningLoader = ({ style }) => {
+  const spinValue = useState(new Animated.Value(0))[0];
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.timing(spinValue, {
+        toValue: 1,
+        duration: 1000,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    ).start();
+  }, [spinValue]);
+
+  const spin = spinValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+
+  return (
+    <Animated.View style={[style, { transform: [{ rotate: spin }] }]}>
+      <Svg width="100%" height="100%" viewBox="0 0 50 50">
+        <Circle
+          cx="25"
+          cy="25"
+          r="20"
+          stroke="#007AFF"
+          strokeWidth="5"
+          fill="none"
+          strokeDasharray="60 100"
+          strokeLinecap="round"
+        />
+      </Svg>
+    </Animated.View>
+  );
+};
+
 
 const MemoryManiac = ({ route }) => {
   const navigation = useNavigation();
@@ -31,74 +71,75 @@ const MemoryManiac = ({ route }) => {
 
   const { time: timerTicks, maxNum, maxResult } = getDifficultySettings();
 
-useEffect(() => {
-  if (step === 0) {
-    const startValue = Math.floor(Math.random() * maxNum) + 1;
-    setCurrentValue(startValue);
-    setOperationText(`Start with ${startValue}`);
-    setStep(1);
-    setStartTime(Date.now());
-    setProgress(1);
-  } else if (step <= 10) {
-    let ticks = 0;
-    const timer = setInterval(() => {
-      ticks++;
-      const newProgress = 1 - (ticks / timerTicks);
-      setProgress(newProgress > 0 ? newProgress : 0);
-      if (ticks >= timerTicks) {
-        clearInterval(timer);
-        if (step < 10) {
-          const operations = ['add', 'subtract', 'multiply', 'divide'];
-          const operation = operations[Math.floor(Math.random() * 4)];
-          let num, newValue;
-
-          if (operation === 'add') {
-            num = Math.floor(Math.random() * maxNum) + 1;
-            newValue = currentValue + num;
-            if (newValue > maxResult) {
-              num = maxResult - currentValue;
-              newValue = maxResult;
-            }
-            setOperationText(`Add ${num}`);
-          } else if (operation === 'subtract') {
-            num = Math.floor(Math.random() * Math.min(currentValue, maxNum)) + 1;
-            newValue = currentValue - num;
-            if (newValue < 0) {
-              num = currentValue;
-              newValue = 0;
-            }
-            setOperationText(`Subtract ${num}`);
-          } else if (operation === 'multiply') {
-            num = Math.floor(Math.random() * Math.min(maxNum, 4)) + 1;
-            newValue = currentValue * num;
-            if (newValue > maxResult) {
-              num = Math.floor(maxResult / currentValue);
+  useEffect(() => {
+    if (step === 0) {
+      const startValue = Math.floor(Math.random() * maxNum) + 1;
+      setCurrentValue(startValue);
+      setOperationText(`Start with ${startValue}`);
+      setStep(1);
+      setStartTime(Date.now());
+      setProgress(1);
+    } else if (step <= 10) {
+      let ticks = 0;
+      const { time: totalTicks } = getDifficultySettings();
+      const timer = setInterval(() => {
+        ticks++;
+        const newProgress = 1 - (ticks / totalTicks);
+        setProgress(newProgress > 0 ? newProgress : 0);
+        if (ticks >= totalTicks) {
+          clearInterval(timer);
+          if (step < 10) {
+            const operations = ['add', 'subtract', 'multiply', 'divide'];
+            const operation = operations[Math.floor(Math.random() * 4)];
+            let num, newValue;
+  
+            if (operation === 'add') {
+              num = Math.floor(Math.random() * maxNum) + 1;
+              newValue = currentValue + num;
+              if (newValue > maxResult) {
+                num = maxResult - currentValue;
+                newValue = maxResult;
+              }
+              setOperationText(`Add ${num}`);
+            } else if (operation === 'subtract') {
+              num = Math.floor(Math.random() * Math.min(currentValue, maxNum)) + 1;
+              newValue = currentValue - num;
+              if (newValue < 0) {
+                num = currentValue;
+                newValue = 0;
+              }
+              setOperationText(`Subtract ${num}`);
+            } else if (operation === 'multiply') {
+              num = Math.floor(Math.random() * Math.min(maxNum, 4)) + 1;
               newValue = currentValue * num;
+              if (newValue > maxResult) {
+                num = Math.floor(maxResult / currentValue);
+                newValue = currentValue * num;
+              }
+              setOperationText(`Multiply by ${num}`);
+            } else {
+              const possibleDivisors = [];
+              for (let i = 1; i <= currentValue && i <= maxNum; i++) {
+                if (currentValue % i === 0) possibleDivisors.push(i);
+              }
+              num = possibleDivisors[Math.floor(Math.random() * possibleDivisors.length)] || 1;
+              newValue = currentValue / num;
+              setOperationText(`Divide by ${num}`);
             }
-            setOperationText(`Multiply by ${num}`);
+  
+            setCurrentValue(newValue);
+            setStep(step + 1);
+            setProgress(1);
           } else {
-            const possibleDivisors = [];
-            for (let i = 1; i <= currentValue && i <= maxNum; i++) {
-              if (currentValue % i === 0) possibleDivisors.push(i);
-            }
-            num = possibleDivisors[Math.floor(Math.random() * possibleDivisors.length)] || 1;
-            newValue = currentValue / num;
-            setOperationText(`Divide by ${num}`);
+            setOperationText('');
+            setProgress(0);
+            setShowInput(true);
           }
-
-          setCurrentValue(newValue);
-          setStep(step + 1);
-          setProgress(1);
-        } else {
-          setOperationText('');
-          setProgress(0);
-          setShowInput(true);
         }
-      }
-    }, 10);
-    return () => clearInterval(timer);
-  }
-}, [step, currentValue, timerTicks, maxNum, maxResult]);
+      }, 10);
+      return () => clearInterval(timer);
+    }
+  }, [step, currentValue, difficulty, maxNum, maxResult]);
 
   const handleNumberPress = (number) => {
     setUserInput(userInput + number);
@@ -153,7 +194,8 @@ useEffect(() => {
   return (
     <View style={[styles.container, selectedWallpaper]}>
       <Text style={styles.operation}>{operationText} {currentValue}</Text>
-      {step > 0 && step <= 10 && <ProgressBar progress={progress} color="#007AFF" style={styles.progress} />}      {showInput ? (
+      {step > 0 && step <= 10 && <SpinningLoader style={styles.spinner} />}
+      {showInput ? (
         <>
           <Text style={styles.input}>{userInput || ' '}</Text>
           {showIncorrect && <Text style={styles.incorrect}>Incorrect</Text>}
@@ -215,6 +257,8 @@ const styles = StyleSheet.create({
   submitButton: { height: Dimensions.get('window').width * 0.18, backgroundColor: '#28A745', borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginTop: 5 },
   backButton: { marginTop: 20, paddingVertical: 10, paddingHorizontal: 20, backgroundColor: '#007AFF', borderRadius: 10 },
   buttonText: { color: '#fff', fontSize: Dimensions.get('window').width * 0.06 },
+  spinner: { width: 50, height: 50, alignSelf: 'center', marginBottom: 20 },
+
 });
 
 export default MemoryManiac;

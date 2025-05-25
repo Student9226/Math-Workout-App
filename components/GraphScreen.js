@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Dimensions, ScrollView, TouchableOpacity } from 'react-native';
-import { LineChart } from 'react-native-chart-kit';
+import { LineChart } from 'react-native-gifted-charts'; // Updated import
 import { getGameResults } from './storage'; // Import the utility function
 import { useNavigation } from '@react-navigation/native'; // Import useNavigation
 
@@ -13,6 +13,7 @@ const GraphScreen = () => {
 
   const screenHeight = Dimensions.get('window').height;
   const graphHeight = screenHeight * 0.5; // Allocate 50% of screen height for the graph
+  const screenWidth = Dimensions.get('window').width;
 
   useEffect(() => {
     const loadResults = async () => {
@@ -27,36 +28,13 @@ const GraphScreen = () => {
     setFilteredGameResults(allGameResults.filter(result => result.gameType === selectedGameType));
   }, [selectedGameType, allGameResults]);
 
-  // Prepare data for the graph
-  const data = {
-    labels: filteredGameResults.map((_, index) => `Game ${index + 1}`), // Labels for each game
-    datasets: [
-      {
-        data: filteredGameResults.map(result => result.score),
-        strokeWidth:3 // Scores as data points
-      },
-    ],
-  };
+  // Prepare data for the graph in react-native-gifted-charts format
+  const chartData = filteredGameResults.map((result, index) => ({
+    value: result.score,
+    label: `${index + 1}`,
+  }));
 
-  // Configuration for the chart
-  const chartConfig = {
-    backgroundColor: '#e26a00',
-    backgroundGradientFrom: '#FB4700',
-    backgroundGradientTo: '#ffa726',
-    decimalPlaces: 0, // optional, defaults to 2dp
-    color: () => `rgba(255, 255, 255, 1)`,
-    labelColor: () => `rgba(255, 255, 255, 1)`,
-    style: {
-      borderRadius: 16,
-    },
-    propsForDots: {
-      r: '6',
-      strokeWidth: '2',
-      stroke: '#fff',
-    },
-  };
-
-  const gameTypes = ['Addition/Subtraction', 'Multiplication/Division', 'Math It Out']; // Removed 'All'
+  const gameTypes = ['Addition/Subtraction', 'Multiplication/Division', 'Math It Out'];
 
   if (loading) {
     return (
@@ -91,12 +69,19 @@ const GraphScreen = () => {
           <Text style={styles.noDataText}>Play at least 2 games of {selectedGameType} to see your progress graph!</Text>
         ) : (
           <LineChart
-            data={data}
-            width={Dimensions.get('window').width - 40} // Adjust width with padding
+            data={chartData}
+            width={screenWidth - 40} // AdACjust width with padding
             height={graphHeight} // Use dynamic height
-            chartConfig={chartConfig}
-            bezier // Makes the line curved
-            style={styles.chartStyle}
+            hideDataPoints={false}
+            gradientDirection="vertical"
+            gradientColor="rgba(255, 255, 255, 0.5)" // You can adjust this
+            areaChart={true} // To have the shaded area below the line
+            showVerticalLines
+            showHorizontalLines
+            xAxisColor="#ccc"
+            yAxisColor="#ccc"
+            color="#007AFF" // Line color
+            thickness={3}
           />
         )}
       </ScrollView>
@@ -153,7 +138,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: Dimensions.get('window').width * 0.04,
   },
-  chartStyle: {
+  chartStyle: { // This style might need adjustments or might not be directly applicable to gifted-charts props
     marginVertical: 8,
     borderRadius: 16,
   },
@@ -182,3 +167,4 @@ const styles = StyleSheet.create({
 });
 
 export default GraphScreen;
+
