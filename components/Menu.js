@@ -9,7 +9,7 @@ const { width } = Dimensions.get('window');
 const Menu = () => {
   const navigation = useNavigation();
   const { wallpaper, setWallpaper, selectedWallpaper, wallpapers } = useContext(WallpaperContext);
-  const { unlockedDifficulty, updateUnlockedDifficulty } = useContext(DifficultyContext);
+  const { unlockedDifficulty, selectedDifficulty, setSelectedDifficulty } = useContext(DifficultyContext);
 
   const difficultyLevels = [
     { name: 'Easy', key: 'Easy' },
@@ -18,30 +18,29 @@ const Menu = () => {
   ];
 
   const isDifficultyLocked = (difficultyKey) => {
-    if (unlockedDifficulty === 'Easy') {
-      return difficultyKey !== 'Easy';
-    } else if (unlockedDifficulty === 'Medium') {
-      return difficultyKey === 'Hard';
-    }
-    return false;
+    const difficultyLevelsOrder = ['Easy', 'Medium', 'Hard'];
+    const difficultyIndex = difficultyLevelsOrder.indexOf(difficultyKey);
+    const highestUnlockedIndex = difficultyLevelsOrder.indexOf(unlockedDifficulty);
+    return difficultyIndex > highestUnlockedIndex;
   };
 
-  // Define button background colors matching wallpaper styles
+
+
   const getButtonBackgroundColor = (wpName) => {
     switch (wpName) {
       case 'Default': return '#FFFFFF'; 
       case 'Aliceblue': return '#F0F8FF';
       case 'Orange': return '#ff8c00';
       case 'Light green': return '#90EE90';
-      case 'Purple': return '#8B8FF6';
-      case 'Ocean': return '#0284C7';
+      case 'Pink': return '#FB8FF6';
+      case 'Skyblue': return '#02F4F7';
       default: return '#f5f5f5';
     }
   };
 
   // Define button text colors
   const getButtonTextColor = (wpName) => {
-    return ['Default', 'Aliceblue', 'Light green'].includes(wpName) ? '#000000' : '#FFFFFF';
+    return ['Default', 'Aliceblue', 'Light green', 'Skyblue'].includes(wpName) ? '#000000' : '#FFFFFF';
   };
 
   return (
@@ -71,22 +70,24 @@ const Menu = () => {
       <View style={styles.settingSection}>
         <Text style={styles.label}>Difficulty</Text>
         <View style={styles.optionGrid}>
-          {difficultyLevels.map(level => (
+        {difficultyLevels.map(level => (
             <TouchableOpacity
               key={level.key}
               style={[
                 styles.optionButton,
-                { backgroundColor: isDifficultyLocked(level.key) ? '#ccc' : '#007AFF' },
-                unlockedDifficulty === level.key && styles.selectedOption,
+                {
+                  backgroundColor: isDifficultyLocked(level.key) ? '#ccc' : '#007AFF',
+                },
+                selectedDifficulty === level.key && styles.selectedOption, // Fixed to use selectedDifficulty
               ]}
               onPress={() => {
                 if (!isDifficultyLocked(level.key)) {
-                  updateUnlockedDifficulty(level.key);
+                  setSelectedDifficulty(level.key);
                 }
               }}
               disabled={isDifficultyLocked(level.key)}
             >
-              <Text style={[styles.optionText, {color:'white'}]}>{level.name}</Text>
+              <Text style={[styles.optionText, { color: 'white' }]}>{level.name}</Text>
             </TouchableOpacity>
           ))}
         </View>

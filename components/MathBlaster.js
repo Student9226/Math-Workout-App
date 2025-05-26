@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Animated } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useAudioPlayer } from 'expo-audio'; // Updated import
+import { Audio } from 'expo-av';
 const { width, height } = Dimensions.get('window');
 
 const MathBlaster = () => {
@@ -16,23 +16,25 @@ const MathBlaster = () => {
   const [laserTarget, setLaserTarget] = useState(null);
   const [usedXPositions, setUsedXPositions] = useState([]);
   const [sound, setSound] = useState(null);
-  const player = useAudioPlayer(require('./laser.mp3'));
   useEffect(() => {
-    // Preload the audio to ensure it's ready to play
-    const loadAudio = async () => {
+    const loadSound = async () => {
       try {
-        await player.play(); // Load the audio file
+        const { sound } = await Audio.Sound.createAsync(
+          require('./laser.mp3') // Local file in the project directory
+        );
+        setSound(sound);
       } catch (error) {
         console.error('Error loading sound:', error);
       }
     };
-    loadAudio();
+    loadSound();
 
-    // Cleanup: Unload the audio when component unmounts
     return () => {
-      player.unload().catch(error => console.error('Error unloading sound:', error));
+      if (sound) {
+        sound.unloadAsync();
+      }
     };
-  }, [player]);
+  }, []);
 
   useEffect(() => {
     const spawnStars = () => {
@@ -172,7 +174,7 @@ const MathBlaster = () => {
       setShowLaser(true);
       setLaserTarget({ x: targetAsteroid.x + 30, y: targetAsteroid.position });
       try {
-        await player.play(); // Play the sound using useAudioPlayer
+        await sound.replayAsync();
       } catch (error) {
         console.error('Error playing sound:', error);
       }

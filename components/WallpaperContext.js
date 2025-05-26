@@ -11,8 +11,8 @@ export const WallpaperProvider = ({ children }) => {
     { name: 'Aliceblue', style: { backgroundColor: '#F0F8FF' } },
     { name: 'Orange', style: { backgroundColor: '#ff8c00' } },
     { name: 'Light green', style: { backgroundColor: '#90EE90' } },
-    { name: 'Purple', style: { backgroundColor: '#8B8FF6' } },
-    { name: 'Ocean', style: { backgroundColor: '#0284C7' } },
+    { name: 'Pink', style: { backgroundColor: '#FB8FF6' } },
+    { name: 'Skyblue', style: { backgroundColor: '#02F4F7' } },
   ];
 
   // Load wallpaper from AsyncStorage on mount

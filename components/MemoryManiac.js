@@ -1,50 +1,42 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { ProgressBar } from 'react-native-paper';
+import * as Progress from 'react-native-progress';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { WallpaperContext } from './WallpaperContext';
 import { saveGameResult } from './storage';
-import Animated, { Easing } from 'react-native';
-import Svg, { Circle } from 'react-native-svg';
 
-const SpinningLoader = ({ style }) => {
-  const spinValue = useState(new Animated.Value(0))[0];
+const ProgressBar = ({ style, duration, step }) => {
+  const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    Animated.loop(
-      Animated.timing(spinValue, {
-        toValue: 1,
-        duration: 1000,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      })
-    ).start();
-  }, [spinValue]);
-
-  const spin = spinValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
+    // Reset progress to 0 when a new question starts
+    setProgress(0);
+    let ticks = 0;
+    const totalTicks = duration;
+    const interval = setInterval(() => {
+      ticks++;
+      const newProgress = ticks / totalTicks;
+      setProgress(newProgress > 1 ? 1 : newProgress);
+      if (ticks >= totalTicks) {
+        clearInterval(interval);
+      }
+    }, 10); // Update every 10ms for smooth animation
+    return () => clearInterval(interval);
+  }, [duration, step]);
 
   return (
-    <Animated.View style={[style, { transform: [{ rotate: spin }] }]}>
-      <Svg width="100%" height="100%" viewBox="0 0 50 50">
-        <Circle
-          cx="25"
-          cy="25"
-          r="20"
-          stroke="#007AFF"
-          strokeWidth="5"
-          fill="none"
-          strokeDasharray="60 100"
-          strokeLinecap="round"
-        />
-      </Svg>
-    </Animated.View>
+    <Progress.Bar
+      progress={progress}
+      width={Dimensions.get('window').width * 0.8}
+      height={10}
+      color="#007AFF"
+      unfilledColor="#ccc"
+      borderWidth={0}
+      style={style}
+    />
   );
 };
-
 
 const MemoryManiac = ({ route }) => {
   const navigation = useNavigation();
@@ -55,16 +47,15 @@ const MemoryManiac = ({ route }) => {
   const [incorrectCount, setIncorrectCount] = useState(0);
   const [showInput, setShowInput] = useState(false);
   const [showIncorrect, setShowIncorrect] = useState(false);
-  const [progress, setProgress] = useState(1);
   const [startTime, setStartTime] = useState(null);
   const { selectedWallpaper } = useContext(WallpaperContext);
-  const difficulty = route?.params?.difficulty || 'Low'; // Default to Low
+  const difficulty = route?.params?.difficulty || 'Low';
 
   const getDifficultySettings = () => {
     switch (difficulty) {
-      case 'Low': return { time: 300, maxNum: 5, maxResult: 15 }; // 5s, 1-5, max 15
-      case 'Moderate': return { time: 250, maxNum: 7, maxResult: 20 }; // 4s, 1-7, max 20
-      case 'Hard': return { time: 200, maxNum: 10, maxResult: 25 }; // 3s, 1-10, max 25
+      case 'Low': return { time: 300, maxNum: 5, maxResult: 15 }; // 3s
+      case 'Moderate': return { time: 250, maxNum: 7, maxResult: 20 }; // 2.5s
+      case 'Hard': return { time: 200, maxNum: 10, maxResult: 25 }; // 2s
       default: return { time: 300, maxNum: 10, maxResult: 15 };
     }
   };
@@ -78,21 +69,18 @@ const MemoryManiac = ({ route }) => {
       setOperationText(`Start with ${startValue}`);
       setStep(1);
       setStartTime(Date.now());
-      setProgress(1);
     } else if (step <= 10) {
       let ticks = 0;
       const { time: totalTicks } = getDifficultySettings();
       const timer = setInterval(() => {
         ticks++;
-        const newProgress = 1 - (ticks / totalTicks);
-        setProgress(newProgress > 0 ? newProgress : 0);
         if (ticks >= totalTicks) {
           clearInterval(timer);
           if (step < 10) {
             const operations = ['add', 'subtract', 'multiply', 'divide'];
             const operation = operations[Math.floor(Math.random() * 4)];
             let num, newValue;
-  
+
             if (operation === 'add') {
               num = Math.floor(Math.random() * maxNum) + 1;
               newValue = currentValue + num;
@@ -126,13 +114,11 @@ const MemoryManiac = ({ route }) => {
               newValue = currentValue / num;
               setOperationText(`Divide by ${num}`);
             }
-  
+
             setCurrentValue(newValue);
             setStep(step + 1);
-            setProgress(1);
           } else {
             setOperationText('');
-            setProgress(0);
             setShowInput(true);
           }
         }
@@ -143,6 +129,7 @@ const MemoryManiac = ({ route }) => {
 
   const handleNumberPress = (number) => {
     setUserInput(userInput + number);
+    setShowIncorrect(false);
   };
 
   const handleClear = () => {
@@ -164,8 +151,8 @@ const MemoryManiac = ({ route }) => {
         score,
         timestamp: Date.now(),
       };
-      saveGameResult(gameResult);
-  
+      await saveGameResult(gameResult);
+
       try {
         const savedCompletions = await AsyncStorage.getItem('memoryManiacCompletions');
         const completions = savedCompletions ? JSON.parse(savedCompletions) : { Low: 0, Moderate: 0, Hard: 0 };
@@ -174,7 +161,7 @@ const MemoryManiac = ({ route }) => {
       } catch (error) {
         console.error('Error saving completions:', error);
       }
-  
+
       navigation.navigate('Results', { timeTaken, errors: incorrectCount, correctAnswers: 1, score, gameType: `Memory Maniac (${difficulty})` });
     } else {
       setShowIncorrect(true);
@@ -193,8 +180,8 @@ const MemoryManiac = ({ route }) => {
 
   return (
     <View style={[styles.container, selectedWallpaper]}>
-      <Text style={styles.operation}>{operationText} {currentValue}</Text>
-      {step > 0 && step <= 10 && <SpinningLoader style={styles.spinner} />}
+      <Text style={styles.operation}>{operationText}</Text>
+      {step > 0 && step <= 10 && <ProgressBar style={styles.progress} duration={timerTicks} step={step}/>}
       {showInput ? (
         <>
           <Text style={styles.input}>{userInput || ' '}</Text>
@@ -245,20 +232,82 @@ const MemoryManiac = ({ route }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'space-evenly', alignItems: 'center', backgroundColor: '#f5f5f5', padding: Dimensions.get('window').width * 0.03 },
-  operation: { fontSize: Dimensions.get('window').width * 0.09, fontWeight: 'bold', marginBottom: 20 },
-  progress: { width: Dimensions.get('window').width * 0.8, height: 10, marginBottom: 20 },
-  input: { fontSize: Dimensions.get('window').width * 0.07, borderWidth: 1, borderColor: '#ccc', padding: 10, width: Dimensions.get('window').width * 0.4, textAlign: 'center', marginBottom: 20, backgroundColor: '#fff', borderRadius: 5 },
-  incorrect: { fontSize: Dimensions.get('window').width * 0.05, color: 'red', marginBottom: 20 },
-  buttonGrid: { alignItems: 'center' },
-  buttonRow: { flexDirection: 'row', justifyContent: 'center', marginBottom: 10 },
-  numberButton: { width: Dimensions.get('window').width * 0.18, height: Dimensions.get('window').width * 0.18, backgroundColor: '#007AFF', borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginHorizontal: 5 },
-  clearButton: { height: Dimensions.get('window').width * 0.18, backgroundColor: '#FF5733', borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginTop: 5 },
-  submitButton: { height: Dimensions.get('window').width * 0.18, backgroundColor: '#28A745', borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginTop: 5 },
-  backButton: { marginTop: 20, paddingVertical: 10, paddingHorizontal: 20, backgroundColor: '#007AFF', borderRadius: 10 },
-  buttonText: { color: '#fff', fontSize: Dimensions.get('window').width * 0.06 },
-  spinner: { width: 50, height: 50, alignSelf: 'center', marginBottom: 20 },
-
+  container: {
+    flex: 1,
+    justifyContent: 'space-evenly',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    padding: Dimensions.get('window').width * 0.03,
+  },
+  operation: {
+    fontSize: Dimensions.get('window').width * 0.09,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  progress: {
+    marginBottom: 20,
+  },
+  input: {
+    fontSize: Dimensions.get('window').width * 0.07,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    padding: 10,
+    width: Dimensions.get('window').width * 0.4,
+    textAlign: 'center',
+    marginBottom: 20,
+    backgroundColor: '#fff',
+    borderRadius: 5,
+  },
+  incorrect: {
+    fontSize: Dimensions.get('window').width * 0.05,
+    color: 'red',
+    marginBottom: 20,
+  },
+  buttonGrid: {
+    alignItems: 'center',
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  numberButton: {
+    width: Dimensions.get('window').width * 0.18,
+    height: Dimensions.get('window').width * 0.18,
+    backgroundColor: '#007AFF',
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 5,
+  },
+  clearButton: {
+    height: Dimensions.get('window').width * 0.18,
+    backgroundColor: '#FF5733',
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 5,
+  },
+  submitButton: {
+    height: Dimensions.get('window').width * 0.18,
+    backgroundColor: '#28A745',
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 5,
+  },
+  backButton: {
+    marginTop: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    backgroundColor: '#007AFF',
+    borderRadius: 10,
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: Dimensions.get('window').width * 0.06,
+  },
 });
 
 export default MemoryManiac;

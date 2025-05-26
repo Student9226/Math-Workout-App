@@ -1,13 +1,15 @@
-import React, { useContext } from 'react';
+import React, { useContext, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { WallpaperContext } from './WallpaperContext';
 import { useNavigation } from '@react-navigation/native';
-
 const { width, height } = Dimensions.get('window');
+import MessageModal from './MessageModal';
 
 const Home = () => {
   const navigation = useNavigation();
   const { selectedWallpaper } = useContext(WallpaperContext);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalMessage, setModalMessage] = useState('');
   const buttons = [
     { title: 'Addition & Subtraction', screen: 'AdditionSubtraction' },
     { title: 'Multiplication & Division', screen: 'MultiplicationDivision' },
@@ -16,6 +18,10 @@ const Home = () => {
     { title: 'Online Challenge (Soon!)', screen: 'OnlineChallenge' },
     { title: 'Math Blaster Game', screen: 'MathBlaster' },
   ];
+
+  const handleModalClose = () => {
+    setModalVisible(false);
+  };
 
   return (
     <View style={[styles.container, selectedWallpaper]}>
@@ -29,7 +35,9 @@ const Home = () => {
               if (['AdditionSubtraction', 'MultiplicationDivision', 'MathItOut', 'MemoryManiacDifficulty', 'MathBlaster'].includes(button.screen)) {
                 navigation.navigate(button.screen);
               } else {
-                console.log(`${button.title} clicked - Coming Soon!`);
+                setModalMessage(`Online Challenge is a work in progress!`);
+                setModalVisible(true);
+
               }
             }}
           >
@@ -46,6 +54,7 @@ const Home = () => {
       <TouchableOpacity onPress={() => navigation.navigate('Menu')}>
         <Text style={{ marginTop: 20, color: 'blue', fontSize: Dimensions.get('window').width * 0.03 }}>Tap here to access the menu</Text>
       </TouchableOpacity>
+      <MessageModal visible={modalVisible} message={modalMessage} onClose={handleModalClose} />
     </View>
   );
 };

@@ -2,7 +2,9 @@ import React, { useState, useEffect, useContext } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { WallpaperContext } from './WallpaperContext';
-import { saveGameResult } from './storage'; // Import the saveGameResult function
+import { saveGameResult } from './storage';
+import MessageModal from './MessageModal';
+import { DifficultyContext } from './DifficultyContext';
 
 const MathItOut = () => {
   const navigation = useNavigation();
@@ -10,36 +12,66 @@ const MathItOut = () => {
   const [userInput, setUserInput] = useState('');
   const [isIncorrect, setIsIncorrect] = useState(false);
   const [correctCount, setCorrectCount] = useState(0);
-  const [errorCount, setErrorCount] = useState(0); // State to track errors
-  const [startTime, setStartTime] = useState(null); // State to track start time
+  const [errorCount, setErrorCount] = useState(0);
+  const [startTime, setStartTime] = useState(null);
   const { selectedWallpaper } = useContext(WallpaperContext);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalMessage, setModalMessage] = useState('');
+  const { selectedDifficulty, updateUnlockedDifficulty, unlockedDifficulty } = useContext(DifficultyContext);
+  const [gameResults, setGameResults] = useState(null);
 
   useEffect(() => {
     generateQuestion();
-    setStartTime(Date.now()); // Set start time when the component mounts
+    setStartTime(Date.now());
   }, []);
 
+  const getQuestionParams = () => {
+    switch (selectedDifficulty) {
+      case 'Easy':
+        return { maxNum: 10, maxAnswer: 20 };
+      case 'Medium':
+        return { maxNum: 20, maxAnswer: 50 };
+      case 'Hard':
+        return { maxNum: 50, maxAnswer: 100 };
+      default:
+        return { maxNum: 10, maxAnswer: 20 };
+    }
+  };
+
   const generateQuestion = () => {
+    const { maxNum, maxAnswer } = getQuestionParams();
     const operations = ['+', '-', '*', '/'];
     const operation = operations[Math.floor(Math.random() * 4)];
     let num1, num2, answer;
 
     if (operation === '*') {
-      num1 = Math.floor(Math.random() * 10);
-      num2 = Math.floor(Math.random() * 10);
+      num1 = Math.floor(Math.random() * maxNum);
+      num2 = Math.floor(Math.random() * maxNum);
       answer = num1 * num2;
+      if (answer > maxAnswer) {
+        num2 = Math.floor(maxAnswer / num1) || 1;
+        answer = num1 * num2;
+      }
     } else if (operation === '/') {
-      num2 = Math.floor(Math.random() * 9) + 1; // 1-9 (avoid division by 0)
-      answer = Math.floor(Math.random() * 10); // Answer between 0-9
-      num1 = num2 * answer; // num1 = num2 * answer to ensure whole number division
+      num2 = Math.floor(Math.random() * (maxNum - 1)) + 1;
+      answer = Math.floor(Math.random() * maxNum);
+      num1 = num2 * answer;
+      if (num1 > maxAnswer) {
+        answer = Math.floor(maxAnswer / num2) || 1;
+        num1 = num2 * answer;
+      }
     } else if (operation === '-') {
-      num2 = Math.floor(Math.random() * 10);
-      num1 = Math.floor(Math.random() * (10 - num2 + 1)) + num2; // Ensure num1 >= num2
+      num2 = Math.floor(Math.random() * maxNum);
+      num1 = Math.floor(Math.random() * (maxNum - num2 + 1)) + num2;
       answer = num1 - num2;
     } else {
-      num1 = Math.floor(Math.random() * 10);
-      num2 = Math.floor(Math.random() * 10);
+      num1 = Math.floor(Math.random() * maxNum);
+      num2 = Math.floor(Math.random() * maxNum);
       answer = num1 + num2;
+      if (answer > maxAnswer) {
+        num2 = maxAnswer - num1;
+        answer = num1 + num2;
+      }
     }
     setQuestion({ num1, num2, operation, answer });
     setUserInput('');
@@ -58,38 +90,61 @@ const MathItOut = () => {
     setIsIncorrect(false);
   };
 
-  const handleSubmit = (input) => {
+  const handleSubmit = async (input) => {
     const userAnswer = parseInt(input, 10);
     if (userAnswer === question.answer) {
       const newCorrectCount = correctCount + 1;
       setCorrectCount(newCorrectCount);
       if (newCorrectCount >= 20) {
         const endTime = Date.now();
-        const timeTaken = (endTime - startTime) / 1000; // Time taken in seconds
-        const score = Math.round(timeTaken * (errorCount + 1)); // Calculate score
-        const gameResult = { // Create an object to store the result
-          gameType: 'Math It Out', // Identify the game type
-          timeTaken: timeTaken,
+        const timeTaken = (endTime - startTime) / 1000;
+        const score = Math.round(timeTaken * (errorCount + 1));
+        const gameResult = {
+          gameType: `Math It Out (${selectedDifficulty})`,
+          timeTaken,
           errors: errorCount,
           correctAnswers: 20,
-          score: score,
-          timestamp: Date.now(), // Add a timestamp
+          score,
+          timestamp: Date.now(),
         };
-        saveGameResult(gameResult); // Save the result to local storage
+        await saveGameResult(gameResult);
 
-        setCorrectCount(0); // Reset counter
-        setErrorCount(0); // Reset error count
-        setStartTime(null); // Reset start time
+        setCorrectCount(0);
+        setErrorCount(0);
+        setStartTime(null);
 
-        navigation.navigate('Results', { timeTaken, errors: errorCount, correctAnswers: 20, score }); // Navigate to ResultsScreen
+        const difficultyLevelsOrder = ['Easy', 'Medium', 'Hard'];
+        const currentIndex = difficultyLevelsOrder.indexOf(selectedDifficulty);
+        const nextDifficulty = difficultyLevelsOrder[currentIndex + 1];
+        const highestUnlockedIndex = difficultyLevelsOrder.indexOf(unlockedDifficulty);
+
+        if (nextDifficulty && currentIndex >= highestUnlockedIndex) {
+          setModalMessage(`You unlocked ${nextDifficulty} difficulty!`);
+          await updateUnlockedDifficulty(nextDifficulty);
+        } else {
+          setModalMessage('Congratulations!');
+        }
+        setGameResults({ timeTaken, errors: errorCount, correctAnswers: 20, score });
+        setModalVisible(true);
       } else {
         setTimeout(generateQuestion, 0);
       }
     } else {
-      setErrorCount(errorCount + 1); // Increment error count
+      setErrorCount(errorCount + 1);
       setIsIncorrect(true);
       setTimeout(() => setIsIncorrect(false), 1000);
       setUserInput('');
+    }
+  };
+
+  const handleModalClose = () => {
+    setModalVisible(false);
+    if (gameResults) {
+      navigation.navigate('Results', gameResults);
+      setGameResults(null);
+      setCorrectCount(0);
+      setErrorCount(0);
+      setStartTime(Date.now());
     }
   };
 
@@ -104,21 +159,27 @@ const MathItOut = () => {
       <Text style={styles.input}>{userInput || ' '}</Text>
       <Text style={styles.counter}>Correct: {correctCount}/20</Text>
       <View style={styles.buttonGrid}>
-        <View style={styles.buttonRow}>{[1, 2, 3].map(num => (
-          <TouchableOpacity key={num} style={styles.numberButton} onPress={() => handleNumberPress(num.toString())}>
-            <Text style={styles.buttonText}>{num}</Text>
-          </TouchableOpacity>
-        ))}</View>
-        <View style={styles.buttonRow}>{[4, 5, 6].map(num => (
-          <TouchableOpacity key={num} style={styles.numberButton} onPress={() => handleNumberPress(num.toString())}>
-            <Text style={styles.buttonText}>{num}</Text>
-          </TouchableOpacity>
-        ))}</View>
-        <View style={styles.buttonRow}>{[7, 8, 9].map(num => (
-          <TouchableOpacity key={num} style={styles.numberButton} onPress={() => handleNumberPress(num.toString())}>
-            <Text style={styles.buttonText}>{num}</Text>
-          </TouchableOpacity>
-        ))}</View>
+        <View style={styles.buttonRow}>
+          {[1, 2, 3].map(num => (
+            <TouchableOpacity key={num} style={styles.numberButton} onPress={() => handleNumberPress(num.toString())}>
+              <Text style={styles.buttonText}>{num}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <View style={styles.buttonRow}>
+          {[4, 5, 6].map(num => (
+            <TouchableOpacity key={num} style={styles.numberButton} onPress={() => handleNumberPress(num.toString())}>
+              <Text style={styles.buttonText}>{num}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <View style={styles.buttonRow}>
+          {[7, 8, 9].map(num => (
+            <TouchableOpacity key={num} style={styles.numberButton} onPress={() => handleNumberPress(num.toString())}>
+              <Text style={styles.buttonText}>{num}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
         <View style={styles.buttonRow}>
           <View style={{ width: buttonSize, height: buttonSize }} />
           <TouchableOpacity style={styles.numberButton} onPress={() => handleNumberPress('0')}>
@@ -133,6 +194,7 @@ const MathItOut = () => {
       <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
         <Text style={styles.buttonText}>Back</Text>
       </TouchableOpacity>
+      <MessageModal visible={modalVisible} message={modalMessage} onClose={handleModalClose} />
     </View>
   );
 };

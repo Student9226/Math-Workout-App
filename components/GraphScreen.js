@@ -1,18 +1,20 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
 import { View, Text, StyleSheet, Dimensions, ScrollView, TouchableOpacity } from 'react-native';
-import { LineChart } from 'react-native-gifted-charts'; // Updated import
-import { getGameResults } from './storage'; // Import the utility function
-import { useNavigation } from '@react-navigation/native'; // Import useNavigation
+import { LineChart } from 'react-native-gifted-charts';
+import { getGameResults } from './storage';
+import { useNavigation } from '@react-navigation/native';
+import { WallpaperContext } from './WallpaperContext'; // Import WallpaperContext
 
 const GraphScreen = () => {
-  const navigation = useNavigation(); // Initialize useNavigation
+  const navigation = useNavigation();
+  const { selectedWallpaper } = useContext(WallpaperContext); // Access selectedWallpaper
   const [allGameResults, setAllGameResults] = useState([]);
   const [filteredGameResults, setFilteredGameResults] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedGameType, setSelectedGameType] = useState('Addition/Subtraction'); // State for selected game type, default to one game type
+  const [selectedGameType, setSelectedGameType] = useState('Addition/Subtraction');
 
   const screenHeight = Dimensions.get('window').height;
-  const graphHeight = screenHeight * 0.5; // Allocate 50% of screen height for the graph
+  const graphHeight = screenHeight * 0.5;
   const screenWidth = Dimensions.get('window').width;
 
   useEffect(() => {
@@ -28,7 +30,6 @@ const GraphScreen = () => {
     setFilteredGameResults(allGameResults.filter(result => result.gameType === selectedGameType));
   }, [selectedGameType, allGameResults]);
 
-  // Prepare data for the graph in react-native-gifted-charts format
   const chartData = filteredGameResults.map((result, index) => ({
     value: result.score,
     label: `${index + 1}`,
@@ -38,20 +39,18 @@ const GraphScreen = () => {
 
   if (loading) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, selectedWallpaper]}>
         <Text>Loading results...</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      {/* Fixed Header */}
+    <View style={[styles.container, selectedWallpaper]}>
       <View style={styles.headerContainer}>
         <Text style={styles.title}>Your Progress ({selectedGameType})</Text>
       </View>
 
-      {/* Scrollable Content */}
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.filterContainer}>
           {gameTypes.map(type => (
@@ -69,24 +68,26 @@ const GraphScreen = () => {
           <Text style={styles.noDataText}>Play at least 2 games of {selectedGameType} to see your progress graph!</Text>
         ) : (
           <LineChart
-            data={chartData}
-            width={screenWidth - 40} // AdACjust width with padding
-            height={graphHeight} // Use dynamic height
-            hideDataPoints={false}
-            gradientDirection="vertical"
-            gradientColor="rgba(255, 255, 255, 0.5)" // You can adjust this
-            areaChart={true} // To have the shaded area below the line
-            showVerticalLines
-            showHorizontalLines
-            xAxisColor="#ccc"
-            yAxisColor="#ccc"
-            color="#007AFF" // Line color
-            thickness={3}
-          />
+              data={chartData}
+              width={screenWidth - 40}
+              height={graphHeight}
+              hideDataPoints={false}
+              gradientDirection="vertical"
+              backgroundColor="#f5f5" // Light gray background for graph
+              color="#007AFF" // Blue line color for contrast
+              thickness={5} // Thicker lines
+              showVerticalLines
+              showHorizontalLines
+              xAxisLabelStyle={{
+                fontWeight: 'bold', // Bold text
+              }}
+              yAxisTextStyle={{
+                fontWeight: 'bold', // Bold text
+              }}
+            />
         )}
       </ScrollView>
 
-      {/* Fixed Footer */}
       <View style={styles.footerContainer}>
         <TouchableOpacity style={styles.homeButton} onPress={() => navigation.navigate('Home')}>
           <Text style={styles.buttonText}>Go to Home Screen</Text>
@@ -99,9 +100,8 @@ const GraphScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
-    paddingTop: 20, // Add padding to the top for the header
-    paddingBottom: 20, // Add padding to the bottom for the footer
+    paddingTop: 20,
+    paddingBottom: 20,
   },
   headerContainer: {
     alignItems: 'center',
@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
     textAlign: 'center',
-    marginHorizontal: 2
+    marginHorizontal: 2,
   },
   scrollContent: {
     flexGrow: 1,
@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: Dimensions.get('window').width * 0.04,
   },
-  chartStyle: { // This style might need adjustments or might not be directly applicable to gifted-charts props
+  chartStyle: {
     marginVertical: 8,
     borderRadius: 16,
   },
@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
   footerContainer: {
     alignItems: 'center',
     marginTop: 20,
-    paddingBottom: 20
+    paddingBottom: 20,
   },
   homeButton: {
     paddingVertical: 15,
@@ -167,4 +167,3 @@ const styles = StyleSheet.create({
 });
 
 export default GraphScreen;
-
